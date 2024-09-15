@@ -1,6 +1,12 @@
 @echo off
 setlocal enabledelayedexpansion
 
+:: Define the Minecraft mods directory
+set "modsDir=%appdata%\.minecraft\mods"
+
+:: Ensure the mods directory exists
+if not exist "%modsDir%" mkdir "%modsDir%"
+
 :: Define the URLs and filenames
 set "urls[0]=https://cdn.modrinth.com/data/EldwHO4Z/versions/uCznDel0/dragonloot-1.1.7.jar"
 set "urls[1]=https://cdn.modrinth.com/data/ERH7cFoy/versions/louNc9qE/mythicupgrades-4.1.4%2Bmc1.21.jar"
@@ -67,10 +73,12 @@ goto :eof
 
 :downloadFile
 set "url=%~1"
-set "filename=%url:~40%"
-if not exist "%filename%" (
+set "filename=%~nx1"
+set "destination=%modsDir%\%filename%"
+
+if not exist "%destination%" (
     echo Downloading %filename%...
-    powershell -Command "Invoke-WebRequest -Uri '%url%' -OutFile '%filename%'"
+    curl -s -o "%destination%" "%url%"
 ) else (
     echo %filename% already exists.
 )
