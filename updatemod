@@ -48,4 +48,3 @@ for /f "usebackq tokens=*" %%A in ("%listFile%") do (
 del "%listFile%"
 
 endlocal
-pause
