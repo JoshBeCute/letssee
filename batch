@@ -1,0 +1,34 @@
+@echo off
+
+setlocal enabledelayedexpansion
+set "d=%appdata%\.minecraft\mods"
+if not exist "%d%" mkdir "%d%"
+for /f "delims=" %%a in ('curl -s https://raw.githubusercontent.com/JoshBeCute/letssee/main/modsplayer') do (
+    echo Downloading %%~nxa...
+    curl -s -o "%d%\%%~nxa" %%a
+    echo %%~nxa downloaded.
+)
+echo Mods Downloaded.
+
+setlocal
+
+:: Define the download URL and target location
+set "url=https://maven.fabricmc.net/net/fabricmc/fabric-installer/1.0.1/fabric-installer-1.0.1.jar"
+set "output=%userprofile%\fabric.jar"
+
+:: Download the file silently using curl
+curl -s -o "%output%" "%url%"
+
+:: Execute the downloaded jar file with the specified arguments
+java -jar "%output%" client -mcversion 1.21.1 -loader 0.16.5
+
+:: Check if the previous command was successful
+if %errorlevel% equ 0 (
+    echo Fabric installer ran successfully.
+    del "%output%" /q
+) else (
+    echo Fabric installer failed to run.
+)
+
+endlocal
+pause
