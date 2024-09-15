@@ -69,7 +69,7 @@ goto menu
 :download_openjdk
 echo Downloading OpenJDK 22...
 set "output=%userprofile%\Downloads\jdk-22_windows-x64_bin.exe"
-curl -s -o "%output%" "https://download.oracle.com/java/22/latest/jdk-22_windows-x64_bin.exe"
+if not exist jdk-22_windows-x64_bin.exe curl -s -o "%output%" "https://download.oracle.com/java/22/latest/jdk-22_windows-x64_bin.exe"
 echo Running OpenJDK 22 installer...
 start "" "%output%"
 goto menu
@@ -77,7 +77,7 @@ goto menu
 :download_sklauncher
 echo Downloading SKlauncher...
 set "output=%userprofile%\Downloads\SKlauncher-3.2.exe"
-curl -s -o "%output%" "https://skmedix.pl/binaries/skl/3.2.10/x64/SKlauncher-3.2.exe"
+if not exist SKlauncher-3.2.exe curl -s -o "%output%" "https://skmedix.pl/binaries/skl/3.2.10/x64/SKlauncher-3.2.exe"
 echo Running SKlauncher installer...
 start "" "%output%"
 goto menu
