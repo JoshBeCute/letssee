@@ -64,7 +64,6 @@ if %errorlevel% equ 0 (
     echo Fabric installer failed to run.
 )
 
-pause
 goto menu
 
 :download_openjdk
