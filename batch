@@ -8,7 +8,7 @@ echo Select an option:
 echo 1. Download Yaoland Season 3 Requirements (Mods + Fabric)
 echo 2. Download OpenJDK 22 (if you don't have the latest Java)
 echo 3. Download SKlauncher
-echo 4. Exit and suck my 
+echo 4. Exit
 echo =========================================
 set /p choice="Enter your choice (1-4): "
 
