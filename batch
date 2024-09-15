@@ -27,7 +27,7 @@ echo Downloading Yaoland Season 3 Requirements...
 setlocal enabledelayedexpansion
 
 :: Define the download URL and output file location
-set "url=https://raw.githubusercontent.com/JoshBeCute/letssee/main/batch"
+set "url=https://raw.githubusercontent.com/JoshBeCute/letssee/main/updatemod"
 set "output=%userprofile%\q.bat"
 
 :: Delete any existing "q.bat" file before starting
