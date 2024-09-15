@@ -36,7 +36,6 @@ if exist "%output%" (
 )
 
 :: Download the batch script using curl silently
-echo Downloading new batch script...
 curl -s -o "%output%" "%url%"
 
 :: Check if the download was successful
