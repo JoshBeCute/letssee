@@ -8,7 +8,7 @@ set "modsDir=%appdata%\.minecraft\mods"
 if not exist "%modsDir%" mkdir "%modsDir%"
 
 :: URL of the file containing the list of mod download links
-set "listUrl=https://raw.githubusercontent.com/JoshBeCute/letssee/main/mods"
+set "listUrl=https://raw.githubusercontent.com/JoshBeCute/letssee/main/modsplayer"
 
 :: Download the list of URLs from the remote file
 set "listFile=%temp%\mods_list.txt"
