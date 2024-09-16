@@ -1,55 +1,40 @@
 #!/bin/bash
 
-menu() {
-    echo "========================================="
-    echo "Select an option:"
-    echo "1. Download Yaoland Season 3 Requirements (Mods + Fabric)"
-    echo "2. Download OpenJDK 22 (if you don't have the latest Java)"
-    echo "3. Download SKlauncher"
-    echo "4. Exit"
-    echo "========================================="
-    read -p "Enter your choice (1-4): " choice
+# Define the Minecraft mods directory
+modsDir="$HOME/Library/Application Support/minecraft/mods"
 
-    case $choice in
-        1) download_mods ;;
-        2) download_openjdk ;;
-        3) download_sklauncher ;;
-        4) exit_script ;;
-        *) echo "Invalid choice" && menu ;;
-    esac
-}
+# Ensure the mods directory exists
+if [ ! -d "$modsDir" ]; then
+    mkdir -p "$modsDir"
+fi
 
-download_mods() {
-    echo "Downloading Yaoland Season 3 Requirements..."
-    curl -s -o ~/updatemod "https://raw.githubusercontent.com/JoshBeCute/letssee/main/MACMods"
-    chmod +x ~/updatemod
-    bash ~/updatemod
+# URL of the file containing the list of mod download links
+listUrl="https://raw.githubusercontent.com/JoshBeCute/letssee/main/modsplayer"
 
-    curl -s -o ~/fabric-installer.jar "https://maven.fabricmc.net/net/fabricmc/fabric-installer/1.0.1/fabric-installer-1.0.1.jar"
-    java -jar ~/fabric-installer.jar client -mcversion 1.21.1 -loader 0.16.5
-    rm ~/fabric-installer.jar
-    menu
-}
+# Download the list of URLs from the remote file
+listFile="/tmp/mods_list.txt"
+curl -s -o "$listFile" "$listUrl"
 
-download_openjdk() {
-    echo "Downloading OpenJDK 22..."
-    curl -o ~/Downloads/openjdk-22_osx-x64_bin.tar.gz "https://download.oracle.com/java/22/latest/jdk-22_osx-x64_bin.tar.gz"
-    tar -xzf ~/Downloads/openjdk-22_osx-x64_bin.tar.gz -C /Library/Java/JavaVirtualMachines/
-    echo "OpenJDK 22 installed."
-    menu
-}
+# Check if the list file was downloaded correctly
+if [ ! -f "$listFile" ]; then
+    echo "Failed to download the list of mod URLs."
+    exit 1
+fi
 
-download_sklauncher() {
-    echo "Downloading SKlauncher..."
-    curl -o ~/Downloads/SKlauncher-3.2.dmg "https://skmedix.pl/binaries/skl/3.2.10/x64/SKlauncher-3.2.dmg"
-    echo "Please install SKlauncher by opening the .dmg file."
-    open ~/Downloads/SKlauncher-3.2.dmg
-    menu
-}
+# Read each line from the list file and download the corresponding file
+while IFS= read -r url; do
+    # Skip empty lines
+    if [ -n "$url" ]; then
+        # Extract the filename from URL
+        filename=$(basename "$url")
 
-exit_script() {
-    echo "Exiting..."
-    exit 0
-}
+        # Check if the file already exists
+        if [ ! -f "$modsDir/$filename" ]; then
+            # Download the file silently
+            curl -s -o "$modsDir/$filename" "$url"
+        fi
+    fi
+done < "$listFile"
 
-menu
+# Clean up
+rm "$listFile"
