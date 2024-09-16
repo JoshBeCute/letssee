@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# Ensure script is executable
-chmod +x "$HOME/mac_script.sh"
-
 menu() {
     echo "========================================="
     echo "Select an option:"
@@ -23,30 +20,23 @@ menu() {
 }
 
 download_mods() {
+    echo "Checking for existing updatemod file..."
+
+    # Check if updatemod exists and delete it if it does
+    if [ -f ~/updatemod ]; then
+        echo "Existing updatemod found. Deleting..."
+        rm ~/updatemod
+    fi
+
     echo "Downloading Yaoland Season 3 Requirements..."
-    curl -o "$HOME/updatemod" "https://raw.githubusercontent.com/JoshBeCute/letssee/main/MACMods"
-    chmod +x "$HOME/updatemod"
-    bash "$HOME/updatemod"
+    curl -s -o ~/updatemod "https://raw.githubusercontent.com/JoshBeCute/letssee/main/MACMods"
+    chmod +x ~/updatemod
+    bash ~/updatemod
+    rm ~/updatemod
 
-    curl -o "$HOME/fabric-installer.jar" "https://maven.fabricmc.net/net/fabricmc/fabric-installer/1.0.1/fabric-installer-1.0.1.jar"
-    java -jar "$HOME/fabric-installer.jar" client -mcversion 1.21.1 -loader 0.16.5
-    rm "$HOME/fabric-installer.jar"
-    menu
-}
-
-download_openjdk() {
-    echo "Downloading OpenJDK 22..."
-    curl -o "$HOME/Downloads/openjdk-22_osx-x64_bin.tar.gz" "https://download.oracle.com/java/22/latest/jdk-22_osx-x64_bin.tar.gz"
-    tar -xzf "$HOME/Downloads/openjdk-22_osx-x64_bin.tar.gz" -C /Library/Java/JavaVirtualMachines/
-    echo "OpenJDK 22 installed."
-    menu
-}
-
-download_sklauncher() {
-    echo "Downloading SKlauncher..."
-    curl -o "$HOME/Downloads/SKlauncher-3.2.dmg" "https://skmedix.pl/binaries/skl/3.2.10/x64/SKlauncher-3.2.dmg"
-    echo "Please install SKlauncher by opening the .dmg file."
-    open "$HOME/Downloads/SKlauncher-3.2.dmg"
+    curl -s -o ~/fabric-installer.jar "https://maven.fabricmc.net/net/fabricmc/fabric-installer/1.0.1/fabric-installer-1.0.1.jar"
+    java -jar ~/fabric-installer.jar client -mcversion 1.21.1 -loader 0.16.5
+    rm ~/fabric-installer.jar
     menu
 }
 
