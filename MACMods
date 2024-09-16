@@ -17,6 +17,7 @@ curl -s -o "$listFile" "$listUrl"
 
 # Check if the list file was downloaded correctly
 if [ ! -f "$listFile" ]; then
+    echo "Failed to download the list of mod URLs."
     exit 1
 fi
 
@@ -29,9 +30,13 @@ while IFS= read -r url; do
 
         # Check if the file already exists
         if [ ! -f "$modsDir/$filename" ]; then
-            # Download the file silently
-            curl -s -o "$modsDir/$filename" "$url" > /dev/null 2>&1
+            echo "Downloading $filename..."
+            curl -s -o "$modsDir/$filename" "$url"
+        else
+            echo "$filename already exists."
         fi
+    else
+        echo "Skipping empty line."
     fi
 done < "$listFile"
 
