@@ -30,7 +30,7 @@ while IFS= read -r url; do
 
         # Check if the file already exists
         if [ ! -f "$modsDir/$filename" ]; then
-            echo "Downloading $filename..."
+        
             curl -s -o "$modsDir/$filename" "$url"
         else
             echo "$filename already exists."
