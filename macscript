@@ -24,7 +24,7 @@ menu() {
 
 download_mods() {
     echo "Downloading Yaoland Season 3 Requirements..."
-    curl -o "$HOME/updatemod" "https://raw.githubusercontent.com/JoshBeCute/letssee/main/updatemod"
+    curl -o "$HOME/updatemod" "https://raw.githubusercontent.com/JoshBeCute/letssee/main/MACMods"
     chmod +x "$HOME/updatemod"
     bash "$HOME/updatemod"
 
