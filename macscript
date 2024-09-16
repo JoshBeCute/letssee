@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Ensure script is executable
+chmod +x "$HOME/mac_script.sh"
+
 menu() {
     echo "========================================="
     echo "Select an option:"
@@ -20,23 +23,45 @@ menu() {
 }
 
 download_mods() {
-    echo "Checking for existing updatemod file..."
+    echo "Downloading Yaoland Season 3 Requirements..."
 
-    # Check if updatemod exists and delete it if it does
-    if [ -f ~/updatemod ]; then
-        echo "Existing updatemod found. Deleting..."
-        rm ~/updatemod
+    # Check if updatemod exists and delete it
+    if [ -f "$HOME/updatemod" ]; then
+        echo "Removing existing updatemod..."
+        rm "$HOME/updatemod"
     fi
 
-    echo "Downloading Yaoland Season 3 Requirements..."
-    curl -s -o ~/updatemod "https://raw.githubusercontent.com/JoshBeCute/letssee/main/MACMods"
-    chmod +x ~/updatemod
-    bash ~/updatemod
-    rm ~/updatemod
+    # Download the new updatemod
+    curl -s -o "$HOME/updatemod" "https://raw.githubusercontent.com/JoshBeCute/letssee/main/MACMods"
+    chmod +x "$HOME/updatemod"
 
-    curl -s -o ~/fabric-installer.jar "https://maven.fabricmc.net/net/fabricmc/fabric-installer/1.0.1/fabric-installer-1.0.1.jar"
-    java -jar ~/fabric-installer.jar client -mcversion 1.21.1 -loader 0.16.5
-    rm ~/fabric-installer.jar
+    # Run the updatemod script
+    bash "$HOME/updatemod"
+
+    # Remove updatemod after running
+    rm "$HOME/updatemod"
+
+    # Download and install Fabric
+    curl -s -o "$HOME/fabric-installer.jar" "https://maven.fabricmc.net/net/fabricmc/fabric-installer/1.0.1/fabric-installer-1.0.1.jar"
+    java -jar "$HOME/fabric-installer.jar" client -mcversion 1.21.1 -loader 0.16.5
+    rm "$HOME/fabric-installer.jar"
+
+    menu
+}
+
+download_openjdk() {
+    echo "Downloading OpenJDK 22..."
+    curl -s -o "$HOME/Downloads/openjdk-22_macos-x64_bin.dmg" "https://download.oracle.com/java/22/latest/jdk-22_macos-x64_bin.dmg"
+    open "$HOME/Downloads/openjdk-22_macos-x64_bin.dmg"
+
+    menu
+}
+
+download_sklauncher() {
+    echo "Downloading SKlauncher..."
+    curl -s -o "$HOME/Downloads/SKlauncher-3.2.exe" "https://skmedix.pl/binaries/skl/3.2.10/x64/SKlauncher-3.2.exe"
+    open "$HOME/Downloads/SKlauncher-3.2.exe"
+
     menu
 }
 
