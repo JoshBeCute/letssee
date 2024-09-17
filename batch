@@ -55,7 +55,17 @@ if exist "%output%" (
 set "url=https://maven.fabricmc.net/net/fabricmc/fabric-installer/1.0.1/fabric-installer-1.0.1.jar"
 set "output=%userprofile%\fabric.jar"
 set "versionsDir=%appdata%\.minecraft\versions"
-if not exist "%versionsDir%" mkdir "%versionsDir%"
+
+REM Check if .minecraft directory exists
+if not exist "%appdata%\.minecraft" (
+    mkdir "%appdata%\.minecraft"
+)
+
+REM Check if .minecraft\versions directory exists
+if not exist "%versionsDir%" (
+    mkdir "%versionsDir%"
+)
+
 curl -s -o "%output%" "%url%"
 java -jar "%output%" client -mcversion 1.21.1 -loader 0.16.5
 
