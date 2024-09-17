@@ -61,7 +61,7 @@ if not exist "%appdata%\.minecraft" (
     mkdir "%appdata%\.minecraft"
 )
 
-REM Check if .minecraft\versions directory exists
+REM Check if .minecraft\versions\versions directory exists
 if not exist "%versionsDir%" (
     mkdir "%versionsDir%"
 )
