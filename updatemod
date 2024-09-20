@@ -7,8 +7,8 @@ set "modsDir=%appdata%\.minecraft\mods"
 :: Ensure the mods directory exists
 if not exist "%modsDir%" mkdir "%modsDir%"
 
-:: Files to be deleted (now including .jar extension)
-set "deleteFiles=PuzzlesLib-v21.1.3-1.21.1-Fabric.jar fabric-api-0.103.0%2B1.21.1.jar"
+:: Files to be deleted (matching the exact filenames with .jar extension)
+set "deleteFiles=PuzzlesLib-v21.1.3-1.21.1-Fabric.jar fabric-api-0.103.0+1.21.1.jar"
 
 :: Loop through the files to delete them if they exist
 for %%F in (%deleteFiles%) do (
@@ -40,8 +40,6 @@ for /f "usebackq tokens=*" %%A in ("%listFile%") do (
 
     :: Skip empty lines
     if not "!url!"=="" (
-        
-        
         :: Extract filename from URL
         for /f "tokens=*" %%B in ("!url!") do set "filename=%%~nxB"
         
