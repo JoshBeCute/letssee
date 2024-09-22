@@ -8,7 +8,7 @@ echo Select an option:
 echo 1. Download Yaoland Season 3 Requirements (Mods + Fabric)
 echo 2. Download OpenJDK 22 (if you don't have the latest Java version)
 echo 3. Download SKlauncher
-echo 4. Download S3 Requirements with VulkanMod (not recommended)
+echo 4. Download S3 Requirements with VulkanMod (not yessir)
 echo 5. Delete all mods in the mods folder
 echo 6. Exit
 echo =========================================
