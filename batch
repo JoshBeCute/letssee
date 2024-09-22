@@ -151,39 +151,47 @@ if not exist "%modsDir%" (
     mkdir "%modsDir%"
 )
 
+:input_links
 :: Ask the user for the mod download links (allow multiple links)
-set /p modlinks="Enter the mod download links: "
+set /p modlinks="Enter the mod download links (separate with spaces): "
 
-:: Replace commas with spaces (to handle multiple links)
-set "modlinks=%modlinks:,= %"
-
-:: Loop through each URL and download mods
+:: Process each link individually
 for %%A in (%modlinks%) do (
     set "modlink=%%A"
-    for %%B in ("%%A") do set "modname=%%~nxB"
     
+    :: Extract the filename from the URL
+    for %%B in ("%%A") do (
+        set "modname=%%~nxB"
+        if "!modname!"=="" (
+            echo Failed to extract filename from: %%A
+            goto input_links
+        )
+    )
+
     :: Download each mod silently into the mods folder
-    curl -s -o "%modsDir%\%modname%" "%modlink%"
+    echo Downloading %%A...
+    curl -s -o "%modsDir%\!modname!" "!modlink!"
     
     :: Check if the download was successful
-    if exist "%modsDir%\%modname%" (
-        echo Mod downloaded successfully: %modname%
+    if exist "%modsDir%\!modname!" (
+        echo Mod downloaded successfully: !modname!
     ) else (
-        echo Failed to download mod: %modlink%
+        echo Failed to download mod: %%A
     )
 )
 
 :: Ask if the user wants to download more mods
+:check_another_mod
 set /p anotherMod="Do you want to add more mod links? (y/n): "
 
 :: Validate the input
 if /i "%anotherMod%"=="y" (
-    goto download_mods_by_links
+    goto input_links
 ) else if /i "%anotherMod%"=="n" (
     goto menu
 ) else (
     echo Invalid choice. Please enter 'y' or 'n'.
-    goto download_mods_by_links
+    goto check_another_mod
 )
 
 :exit_script
