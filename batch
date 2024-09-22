@@ -6,12 +6,12 @@ cls
 echo =========================================
 echo Select an option:
 echo 1. Download Yaoland Season 3 Requirements (Mods + Fabric)
-echo 2. Download OpenJDK 22 (if you don't have the latest Java version)
-echo 3. Download SKlauncher
+echo 2. Download OpenJDK 22 (if you don't have the latest Java version or dont have java)
+echo 3. Download SKlauncher (recommended, for it is faster than most free launchers)
 echo 4. Download S3 Requirements with VulkanMod (not recommended)
-echo 5. Delete all mods in the mods folder
-echo 6. Download Mods using provided links
-echo 7. Exit
+echo 5. Delete all mods in the mods folder (this deletes all the jar files, mods in your mods folder.)
+echo 6. Download Mods using provided links (to download, you must paste in a valid download link eg. https://cdn.modrinth.com/data/ID/versions/$mod.jar
+echo 7. Exit (always exit the command prompt using this so it'll update the batch file.)
 echo =========================================
 set /p choice="Enter your choice (1-7): "
 
