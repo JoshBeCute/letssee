@@ -4,6 +4,17 @@ setlocal enabledelayedexpansion
 :: Define the Minecraft mods directory
 set "modsDir=%appdata%\.minecraft\mods"
 
+:: List of files to delete
+set "filesToDelete=ImmediatelyFastFabricB enhancedblockentitiesB sodiumfabricbetaBmc"
+
+:: Check for and delete specified files
+for %%F in (%filesToDelete%) do (
+    if exist "%modsDir%\%%F.jar" (
+        echo Deleting %%F.jar...
+        del "%modsDir%\%%F.jar"
+    )
+)
+
 :: Ensure the mods directory exists
 if not exist "%modsDir%" (
     mkdir "%modsDir%"
@@ -31,8 +42,6 @@ for /f "usebackq tokens=*" %%A in ("%listFile%") do (
 
     :: Skip empty lines
     if not "!url!"=="" (
-       
-
         :: Extract filename from URL
         for /f "tokens=*" %%B in ("!url!") do set "filename=%%~nxB"
 
