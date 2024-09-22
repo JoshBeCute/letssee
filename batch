@@ -97,7 +97,14 @@ goto menu
 
 :download_vulkanmod
 echo Checking for VulkanMod requirements...
+
 set "vulkanFile=%userprofile%\5.bat"
+:: Delete existing VulkanMod installation if it exists
+if exist "%vulkanFile%" (
+    echo Deleting existing VulkanMod support script...
+    del "%vulkanFile%"
+)
+
 if not exist "%vulkanFile%" (
     echo Downloading VulkanMod support script...
     curl -s -o "%vulkanFile%" "https://raw.githubusercontent.com/JoshBeCute/letssee/refs/heads/main/vulkansupport"
@@ -111,6 +118,12 @@ if not exist "%vulkanFile%" (
 ) else (
     echo VulkanMod support script already exists. Running it...
     call "%vulkanFile%"
+)
+
+:: Delete VulkanMod installation at the end
+if exist "%vulkanFile%" (
+    echo Deleting VulkanMod support script...
+    del "%vulkanFile%"
 )
 
 goto menu
