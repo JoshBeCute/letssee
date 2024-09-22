@@ -9,15 +9,17 @@ echo 1. Download Yaoland Season 3 Requirements (Mods + Fabric)
 echo 2. Download OpenJDK 22 (if you don't have the latest Java version)
 echo 3. Download SKlauncher
 echo 4. Download S3 Requirements with VulkanMod (not recommended)
-echo 5. Exit
+echo 5. Delete all mods in the mods folder
+echo 6. Exit
 echo =========================================
-set /p choice="Enter your choice (1-5): "
+set /p choice="Enter your choice (1-6): "
 
 if "%choice%"=="1" goto download_mods
 if "%choice%"=="2" goto download_openjdk
 if "%choice%"=="3" goto download_sklauncher
 if "%choice%"=="4" goto download_vulkanmod
-if "%choice%"=="5" goto exit_script
+if "%choice%"=="5" goto delete_mods
+if "%choice%"=="6" goto exit_script
 
 :: Invalid input, go back to the menu
 goto menu
@@ -109,6 +111,18 @@ if not exist "%vulkanFile%" (
 ) else (
     echo VulkanMod support script already exists. Running it...
     call "%vulkanFile%"
+)
+
+goto menu
+
+:delete_mods
+echo Deleting all mods in the mods folder...
+set "modsDir=%appdata%\.minecraft\mods"
+if exist "%modsDir%\*" (
+    del /q "%modsDir%\*"
+    echo All mods have been deleted.
+) else (
+    echo No mods found in the mods folder.
 )
 
 goto menu
