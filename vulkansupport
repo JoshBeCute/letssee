@@ -1,0 +1,80 @@
+@echo off
+setlocal enabledelayedexpansion
+
+:: Define the Minecraft mods directory
+set "modsDir=%appdata%\.minecraft\mods"
+
+:: Ensure the mods directory exists
+if not exist "%modsDir%" (
+    mkdir "%modsDir%"
+    echo Created mods directory: %modsDir%
+)
+
+:: URL of the file containing the list of mod download links
+set "listUrl=https://raw.githubusercontent.com/JoshBeCute/letssee/main/modsplayer"
+
+:: Download the list of URLs from the remote file
+set "listFile=%temp%\mods_list.txt"
+echo Downloading mod list from %listUrl%...
+curl -s -o "%listFile%" "%listUrl%"
+
+:: Check if the list file was downloaded correctly
+if not exist "%listFile%" (
+    echo Failed to download the list of mod URLs.
+    pause
+    exit /b 1
+)
+
+:: Read each line from the list file and download the corresponding file
+for /f "usebackq tokens=*" %%A in ("%listFile%") do (
+    set "url=%%A"
+
+    :: Skip empty lines
+    if not "!url!"=="" (
+       
+
+        :: Extract filename from URL
+        for /f "tokens=*" %%B in ("!url!") do set "filename=%%~nxB"
+
+        :: Sanitize the filename
+        set "sanitized="
+        for /l %%i in (0,1,31) do (
+            set "char=!filename:~%%i,1!"
+            if "!char!" neq "" (
+                if "!char!" geq "a" if "!char!" leq "z" (
+                    set "sanitized=!sanitized!!char!"
+                ) else if "!char!" geq "0" if "!char!" leq "9" (
+                    set "sanitized=!sanitized!!char!"
+                )
+            )
+        )
+        
+        :: Ensure filename is not empty
+        if "!sanitized!"=="" (
+            echo Error: Filename sanitization resulted in an empty name.
+            pause
+            exit /b 1
+        )
+
+        :: Append .jar extension for saving
+        set "finalFilename=!sanitized!.jar"
+
+        :: Check if the file already exists
+        if not exist "%modsDir%\!finalFilename!" (
+            echo Downloading !finalFilename!...
+            curl -s -o "%modsDir%\!finalFilename!" "!url!"
+            if errorlevel 1 (
+                echo Error downloading !finalFilename!.
+            )
+        ) else (
+            echo !finalFilename! already exists.
+        )
+    ) else (
+        echo Skipping empty line.
+    )
+)
+
+:: Clean up
+del "%listFile%"
+
+endlocal
