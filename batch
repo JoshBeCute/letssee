@@ -133,10 +133,10 @@ echo Invalid choice. Please enter 'y' or 'n'.
 goto check_another_mod
 
 :refresh
-:: Refresh q.bat
+:: Refresh q.bat from the correct link
 set "output=%userprofile%\q.bat"
 if exist "%output%" del "%output%" /q
-curl -s -o "%output%" "https://raw.githubusercontent.com/JoshBeCute/letssee/main/q.bat"
+curl -s -o "%output%" "https://raw.githubusercontent.com/JoshBeCute/letssee/refs/heads/main/batch"
 
 :: Reload the script after refresh
 start "" "%output%"
