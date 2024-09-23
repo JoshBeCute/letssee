@@ -6,22 +6,24 @@ cls
 echo =========================================
 echo Select an option:
 echo 1. Download Yaoland Season 3 Requirements (Mods + Fabric)
-echo 2. Download OpenJDK 22 (if you don't have the latest Java version or dont have java)
-echo 3. Download SKlauncher (recommended, for it is faster than most free launchers)
+echo 2. Download OpenJDK 22 (if you don't have the latest Java version)
+echo 3. Download SKlauncher
 echo 4. Download S3 Requirements with VulkanMod (not recommended)
-echo 5. Delete all mods in the mods folder (this deletes all the jar files, mods in your mods folder.)
-echo 6. Download Mods using provided links (to download, you must paste in a valid download link eg. https://cdn.modrinth.com/data/ID/versions/$mod.jar
-echo 7. Exit (always exit the command prompt using this so it'll update the batch file.)
+echo 5. Delete all mods in the mods folder
+echo 6. Download Mods using provided links
+echo 7. Exit
+echo R. Refresh q.bat
 echo =========================================
-set /p choice="Enter your choice (1-7): "
+set /p choice="Enter your choice (1-7 or R): "
 
-if "%choice%"=="1" goto download_mods
-if "%choice%"=="2" goto download_openjdk
-if "%choice%"=="3" goto download_sklauncher
-if "%choice%"=="4" goto download_vulkanmod
-if "%choice%"=="5" goto delete_mods
-if "%choice%"=="6" goto download_mods_by_links
-if "%choice%"=="7" goto exit_script
+if /i "%choice%"=="1" goto download_mods
+if /i "%choice%"=="2" goto download_openjdk
+if /i "%choice%"=="3" goto download_sklauncher
+if /i "%choice%"=="4" goto download_vulkanmod
+if /i "%choice%"=="5" goto delete_mods
+if /i "%choice%"=="6" goto download_mods_by_links
+if /i "%choice%"=="7" goto exit_script
+if /i "%choice%"=="R" goto refresh
 
 :: Invalid input, go back to the menu
 goto menu
@@ -82,97 +84,40 @@ if %errorlevel% equ 0 (
 goto menu
 
 :download_openjdk
-echo Downloading OpenJDK 22...
 set "output=%userprofile%\Downloads\jdk-22_windows-x64_bin.exe"
 if not exist "%output%" curl -s -o "%output%" "https://download.oracle.com/java/22/latest/jdk-22_windows-x64_bin.exe"
-echo Running OpenJDK 22 installer...
 start "" "%output%"
 goto menu
 
 :download_sklauncher
-echo Downloading SKlauncher...
 set "output=%userprofile%\Downloads\SKlauncher-3.2.exe"
 if not exist "%output%" curl -s -o "%output%" "https://skmedix.pl/binaries/skl/3.2.10/x64/SKlauncher-3.2.exe"
-echo Running SKlauncher installer...
 start "" "%output%"
 goto menu
 
 :download_vulkanmod
-echo Checking for VulkanMod requirements...
-
 set "vulkanFile=%userprofile%\5.bat"
-:: Delete existing VulkanMod installation if it exists
-if exist "%vulkanFile%" (
-    echo Deleting existing VulkanMod support script...
-    del "%vulkanFile%"
-)
-
-if not exist "%vulkanFile%" (
-    echo Downloading VulkanMod support script...
-    curl -s -o "%vulkanFile%" "https://raw.githubusercontent.com/JoshBeCute/letssee/refs/heads/main/vulkansupport"
-    
-    if exist "%vulkanFile%" (
-        echo Running VulkanMod support script...
-        call "%vulkanFile%"
-    ) else (
-        echo Failed to download VulkanMod support script.
-    )
-) else (
-    echo VulkanMod support script already exists. Running it...
-    call "%vulkanFile%"
-)
-
-:: Delete VulkanMod installation at the end
-if exist "%vulkanFile%" (
-    echo Deleting VulkanMod support script...
-    del "%vulkanFile%"
-)
-
+if exist "%vulkanFile%" del "%vulkanFile%" /q
+curl -s -o "%vulkanFile%" "https://raw.githubusercontent.com/JoshBeCute/letssee/refs/heads/main/vulkansupport"
+if exist "%vulkanFile%" call "%vulkanFile%"
+del "%vulkanFile%" /q
 goto menu
 
 :delete_mods
-echo Deleting all mods in the mods folder...
 set "modsDir=%appdata%\.minecraft\mods"
-if exist "%modsDir%\*" (
-    del /q "%modsDir%\*"
-    echo All mods have been deleted.
-) else (
-    echo No mods found in the mods folder.
-)
-
+if exist "%modsDir%\*" del /q "%modsDir%\*"
 goto menu
 
 :download_mods_by_links
-echo Downloading mods...
-
-:: Check if the mods folder exists; if not, create it
 set "modsDir=%appdata%\.minecraft\mods"
-if not exist "%modsDir%" (
-    mkdir "%modsDir%"
-)
+if not exist "%modsDir%" mkdir "%modsDir%"
 
 :input_links
-:: Ask the user for the mod download links (allow multiple links)
 set /p modlinks="Enter the mod download links (separate with spaces): "
-
-:: Process each link individually
 for %%A in (%modlinks%) do (
     set "modlink=%%A"
-    
-    :: Extract the filename from the URL
-    for %%B in ("%%A") do (
-        set "modname=%%~nxB"
-        if "!modname!"=="" (
-            echo Failed to extract filename from: %%A
-            goto input_links
-        )
-    )
-
-    :: Download each mod silently into the mods folder
-    echo Downloading %%A...
+    for %%B in ("%%A") do set "modname=%%~nxB"
     curl -s -o "%modsDir%\!modname!" "!modlink!"
-    
-    :: Check if the download was successful
     if exist "%modsDir%\!modname!" (
         echo Mod downloaded successfully: !modname!
     ) else (
@@ -180,21 +125,20 @@ for %%A in (%modlinks%) do (
     )
 )
 
-:: Ask if the user wants to download more mods
 :check_another_mod
 set /p anotherMod="Do you want to add more mod links? (y/n): "
+if /i "%anotherMod%"=="y" goto input_links
+if /i "%anotherMod%"=="n" goto menu
+echo Invalid choice. Please enter 'y' or 'n'.
+goto check_another_mod
 
-:: Validate the input
-if /i "%anotherMod%"=="y" (
-    goto input_links
-) else if /i "%anotherMod%"=="n" (
-    goto menu
-) else (
-    echo Invalid choice. Please enter 'y' or 'n'.
-    goto check_another_mod
-)
+:refresh
+:: Delete q.bat and redownload it silently
+set "output=%userprofile%\q.bat"
+if exist "%output%" del "%output%" /q
+curl -s -o "%output%" "https://raw.githubusercontent.com/JoshBeCute/letssee/main/q.bat"
+goto menu
 
 :exit_script
-echo Exiting...
 endlocal
 exit /b
