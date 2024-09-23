@@ -11,9 +11,10 @@ echo 3. Download SKlauncher
 echo 4. Download S3 Requirements with VulkanMod (not recommended)
 echo 5. Delete all mods in the mods folder
 echo 6. Download Mods using provided links
-echo 7. Exit
+echo 7. Open Minecraft Mods Folder
+echo 8. Exit
 echo =========================================
-set /p choice="Enter your choice (1-7): "
+set /p choice="Enter your choice (1-8): "
 
 if "%choice%"=="1" goto download_mods
 if "%choice%"=="2" goto download_openjdk
@@ -21,7 +22,8 @@ if "%choice%"=="3" goto download_sklauncher
 if "%choice%"=="4" goto download_vulkanmod
 if "%choice%"=="5" goto delete_mods
 if "%choice%"=="6" goto download_mods_by_links
-if "%choice%"=="7" goto exit_script
+if "%choice%"=="7" goto open_mods_folder
+if "%choice%"=="8" goto exit_script
 
 :: Invalid input, go back to the menu
 goto menu
@@ -193,6 +195,11 @@ if /i "%anotherMod%"=="y" (
     echo Invalid choice. Please enter 'y' or 'n'.
     goto check_another_mod
 )
+
+:open_mods_folder
+echo Opening Minecraft mods folder...
+start "" "%appdata%\.minecraft\mods"
+goto menu
 
 :exit_script
 echo Exiting...
