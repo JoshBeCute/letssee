@@ -133,11 +133,14 @@ echo Invalid choice. Please enter 'y' or 'n'.
 goto check_another_mod
 
 :refresh
-:: Delete q.bat and redownload it silently
+:: Refresh q.bat
 set "output=%userprofile%\q.bat"
 if exist "%output%" del "%output%" /q
 curl -s -o "%output%" "https://raw.githubusercontent.com/JoshBeCute/letssee/main/q.bat"
-goto menu
+
+:: Reload the script after refresh
+start "" "%output%"
+exit
 
 :exit_script
 endlocal
