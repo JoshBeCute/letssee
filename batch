@@ -138,7 +138,7 @@ set "output=%userprofile%\q.bat"
 if exist "%output%" del "%output%" /q
 curl -s -o "%output%" "https://raw.githubusercontent.com/JoshBeCute/letssee/refs/heads/main/batch"
 
-:: Reload the script after refresh
+:: Restart the freshly downloaded q.bat
 start "" "%output%"
 exit
 
