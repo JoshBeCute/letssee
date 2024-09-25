@@ -2,7 +2,7 @@
 setlocal
 
 REM Prompt for RAM allocation
-set /p RAM="Enter amount of RAM for the server in GB (recommended 4GB): "
+set /p RAM="Enter amount of RAM for the server in GB (4 is recommended. TYPE IN NUMBERS ONLY): "
 
 REM Check if the input is a valid number
 for /f "delims=0123456789" %%a in ("%RAM%") do (
