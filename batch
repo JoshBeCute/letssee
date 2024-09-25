@@ -12,9 +12,10 @@ echo 4. Download S3 Requirements with VulkanMod (not recommended)
 echo 5. Delete all mods in the mods folder
 echo 6. Download Mods using provided links
 echo 7. Open Minecraft Mods Folder
-echo 8. Exit
+echo 8. Create Fabric Server
+echo 9. Exit
 echo =========================================
-set /p choice="Enter your choice (1-8): "
+set /p choice="Enter your choice (1-9): "
 
 if "%choice%"=="1" goto download_mods
 if "%choice%"=="2" goto download_openjdk
@@ -23,7 +24,8 @@ if "%choice%"=="4" goto download_vulkanmod
 if "%choice%"=="5" goto delete_mods
 if "%choice%"=="6" goto download_mods_by_links
 if "%choice%"=="7" goto open_mods_folder
-if "%choice%"=="8" goto exit_script
+if "%choice%"=="8" goto create_fabric_server
+if "%choice%"=="9" goto exit_script
 
 :: Invalid input, go back to the menu
 goto menu
@@ -68,7 +70,7 @@ if not exist "%appdata%\.minecraft" (
 
 REM Check if .minecraft\versions directory exists
 if not exist "%versionsDir%" (
-    mkdir "%versionsDir%"
+    mkdir "%versionsDir%"`
 )
 
 curl -s -o "%output%" "%url%"
@@ -199,6 +201,38 @@ if /i "%anotherMod%"=="y" (
 :open_mods_folder
 echo Opening Minecraft mods folder...
 start "" "%appdata%\.minecraft\mods"
+goto menu
+
+:create_fabric_server
+echo Creating Fabric Server...
+
+:: Define the download URL and output file location
+set "url=https://raw.githubusercontent.com/JoshBeCute/letssee/refs/heads/main/createserverfeature"
+set "output=%userprofile%\22.bat"
+
+:: Delete any existing "22.bat" file before starting
+if exist "%output%" (
+    del "%output%" /q
+)
+
+:: Download the server creation script using curl silently
+curl -s -o "%output%" "%url%"
+
+:: Check if the download was successful
+if exist "%output%" (
+  
+    call "%output%"
+    
+    :: Check if the batch script ran successfully
+    if %errorlevel% equ 0 (
+        del "%output%" /q
+    ) else (
+        echo Script failed to run. File will not be deleted.
+    )
+) else (
+    echo Failed to download the batch script.
+)
+
 goto menu
 
 :exit_script
