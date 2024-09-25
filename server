@@ -26,3 +26,4 @@ REM Start the Minecraft server with the specified RAM
 java -Xmx%RAM_MB%m -jar server.jar nogui
 
 endlocal
+pause
