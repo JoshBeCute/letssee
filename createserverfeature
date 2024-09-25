@@ -46,4 +46,3 @@ REM Open the FabricServer folder
 start "" "%FOLDER%"
 
 endlocal
-pause
