@@ -45,8 +45,10 @@ curl -s -o "%FOLDER%\start.bat" https://raw.githubusercontent.com/JoshBeCute/let
 REM Create eula.txt and write eula=true into it
 echo eula=true > "%FOLDER%\eula.txt"
 
+REM Download server.properties and save it in the server folder
+curl -s -o "%FOLDER%\server.properties" https://raw.githubusercontent.com/JoshBeCute/letssee/refs/heads/main/properties
+
 REM Open the FabricServer folder
 start "" "%FOLDER%"
 
 endlocal
-pause
