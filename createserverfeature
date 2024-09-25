@@ -1,0 +1,49 @@
+@echo off
+setlocal
+
+REM Create folder on Desktop
+set "FOLDER=%USERPROFILE%\Desktop\FabricServer"
+mkdir "%FOLDER%"
+
+REM Change to the newly created directory
+cd "%FOLDER%"
+
+REM Download the Fabric installer silently using curl
+curl -s -o fabric-installer-1.0.1.jar https://maven.fabricmc.net/net/fabricmc/fabric-installer/1.0.1/fabric-installer-1.0.1.jar
+
+REM Rename the downloaded file
+ren "fabric-installer-1.0.1.jar" "fabric.jar"
+
+REM Prompt for Minecraft version
+set /p MINECRAFT_VERSION="Enter Minecraft version (e.g., 1.21.1): "
+
+REM Prompt for Fabric loader version
+set /p LOADER_VERSION="Enter Fabric loader version (e.g., 0.16.5): "
+
+REM Execute the Fabric server command
+java -jar fabric.jar server -mcversion %MINECRAFT_VERSION% -loader %LOADER_VERSION% -downloadMinecraft
+
+REM Check if the command was successful
+if %errorlevel% neq 0 (
+    echo There was an error running the Fabric installer.
+    pause
+    exit /b
+)
+
+REM Delete the fabric.jar file after successful execution
+del "fabric.jar"
+
+REM Create a mods folder
+mkdir "%FOLDER%\mods"
+
+REM Download the mod silently into the mods folder
+curl -s -o "%FOLDER%\mods\playit-fabric-1.3.1-1.20.X.jar" https://cdn.modrinth.com/data/xd3SgXSp/versions/L64ycG6F/playit-fabric-1.3.1-1.20.X.jar
+
+REM Download the start.bat file into the server folder
+curl -s -o "%FOLDER%\start.bat" https://raw.githubusercontent.com/JoshBeCute/letssee/refs/heads/main/server
+
+REM Open the FabricServer folder
+start "" "%FOLDER%"
+
+endlocal
+pause
