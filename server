@@ -23,6 +23,6 @@ cd "%FOLDER%" || (
 )
 
 REM Start the Minecraft server with the specified RAM
-java -Xmx%RAM_MB%m -jar fabric-server-launch.jar nogui
+java -Xmx%RAM_MB%m -jar server.jar nogui
 
 endlocal
