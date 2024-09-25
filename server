@@ -1,0 +1,28 @@
+@echo off
+setlocal
+
+REM Prompt for RAM allocation
+set /p RAM="Enter amount of RAM for the server in GB (recommended 4GB): "
+
+REM Check if the input is a valid number
+for /f "delims=0123456789" %%a in ("%RAM%") do (
+    echo Invalid input. Please enter a number.
+    pause
+    exit /b
+)
+
+REM Convert RAM to MB for the java command
+set /a RAM_MB=%RAM% * 1024
+
+REM Change to the FabricServer directory
+set "FOLDER=%USERPROFILE%\Desktop\FabricServer"
+cd "%FOLDER%" || (
+    echo Folder not found. Make sure FabricServer is created.
+    pause
+    exit /b
+)
+
+REM Start the Minecraft server with the specified RAM
+java -Xmx%RAM_MB%m -jar fabric-server-launch.jar nogui
+
+endlocal
