@@ -216,8 +216,8 @@ if exist "%modsDir%" (
     echo Failed to create or find the mods folder.
 )
 
-pause
-)
+goto menu
+
 
 :create_fabric_server
 echo Creating Fabric Server...
