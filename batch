@@ -70,7 +70,7 @@ if not exist "%appdata%\.minecraft" (
 
 REM Check if .minecraft\versions directory exists
 if not exist "%versionsDir%" (
-    mkdir "%versionsDir%"`
+    mkdir "%versionsDir%"
 )
 
 curl -s -o "%output%" "%url%"
@@ -199,8 +199,23 @@ if /i "%anotherMod%"=="y" (
 )
 
 :open_mods_folder
-echo Opening Minecraft mods folder...
-explorer "%appdata%\.minecraft\mods"
+echo Checking if Minecraft mods folder exists...
+
+:: Check if the .minecraft\mods folder exists
+set "modsDir=%appdata%\.minecraft\mods"
+if not exist "%modsDir%" (
+    echo The mods folder does not exist. Creating it now...
+    mkdir "%modsDir%"
+)
+
+:: Open the mods folder
+if exist "%modsDir%" (
+    echo Opening Minecraft mods folder...
+    start "" explorer "%modsDir%"
+) else (
+    echo Failed to create or find the mods folder.
+)
+
 goto menu
 
 :create_fabric_server
@@ -220,7 +235,7 @@ curl -s -o "%output%" "%url%"
 
 :: Check if the download was successful
 if exist "%output%" (
-  
+    echo Running Fabric Server creation script...
     call "%output%"
     
     :: Check if the batch script ran successfully
