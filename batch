@@ -200,7 +200,7 @@ if /i "%anotherMod%"=="y" (
 
 :open_mods_folder
 echo Opening Minecraft mods folder...
-start "" "%appdata%\.minecraft\mods"
+explorer "%appdata%\.minecraft\mods"
 goto menu
 
 :create_fabric_server
