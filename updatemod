@@ -5,7 +5,7 @@ setlocal enabledelayedexpansion
 set "modsDir=%appdata%\.minecraft\mods"
 
 :: List of files to delete
-set "filesToDelete=fixantighostforkcrashj"
+set "filesToDelete=fixantighostforkcrashj Palladiumx"
 
 :: Check for and delete specified files
 for %%F in (%filesToDelete%) do (
