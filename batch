@@ -13,9 +13,10 @@ echo 5. Delete all mods in the mods folder
 echo 6. Download Mods using provided links
 echo 7. Open Minecraft Mods Folder
 echo 8. Create Fabric Server
-echo 9. Exit
+echo 9. Fix Unknown Host Error
+echo 10. Exit
 echo =========================================
-set /p choice="Enter your choice (1-9): "
+set /p choice="Enter your choice (1-10): "
 
 if "%choice%"=="1" goto download_mods
 if "%choice%"=="2" goto download_openjdk
@@ -25,7 +26,8 @@ if "%choice%"=="5" goto delete_mods
 if "%choice%"=="6" goto download_mods_by_links
 if "%choice%"=="7" goto open_mods_folder
 if "%choice%"=="8" goto create_fabric_server
-if "%choice%"=="9" goto exit_script
+if "%choice%"=="9" goto fix_unknown_host_error
+if "%choice%"=="10" goto exit_script
 
 :: Invalid input, go back to the menu
 goto menu
@@ -199,54 +201,67 @@ if /i "%anotherMod%"=="y" (
 )
 
 :open_mods_folder
-echo Checking if Minecraft mods folder exists...
-
-:: Check if the .minecraft\mods folder exists
+echo Opening Minecraft mods folder...
 set "modsDir=%appdata%\.minecraft\mods"
 if not exist "%modsDir%" (
-    echo The mods folder does not exist. Creating it now...
     mkdir "%modsDir%"
 )
+start "" "%modsDir%"
+goto menu
 
-:: Open the mods folder
-if exist "%modsDir%" (
-    echo Opening Minecraft mods folder...
-    start "" explorer "%modsDir%"
+:create_fabric_server
+echo Downloading Fabric server creation script...
+set "serverScript=%userprofile%\22.bat"
+
+:: Delete any existing 22.bat file before starting
+if exist "%serverScript%" (
+    del "%serverScript%" /q
+)
+
+:: Download the batch script using curl silently
+curl -s -o "%serverScript%" "https://raw.githubusercontent.com/JoshBeCute/letssee/refs/heads/main/createserverfeature"
+
+:: Check if the download was successful
+if exist "%serverScript%" (
+    echo Running Fabric server creation script...
+    powershell -command "Start-Process cmd -ArgumentList '/c %serverScript%' -Verb RunAs"
+    
+    :: Wait for the user to acknowledge the script has run
+    echo Press any key to continue...
+    pause >nul
+
+    :: Delete the script after running
+    del "%serverScript%" /q
 ) else (
-    echo Failed to create or find the mods folder.
+    echo Failed to download the Fabric server creation script.
 )
 
 goto menu
 
+:fix_unknown_host_error
+set "dns_script=%userprofile%\dns.bat"
 
-:create_fabric_server
-echo Creating Fabric Server...
-
-:: Define the download URL and output file location
-set "url=https://raw.githubusercontent.com/JoshBeCute/letssee/refs/heads/main/createserverfeature"
-set "output=%userprofile%\22.bat"
-
-:: Delete any existing "22.bat" file before starting
-if exist "%output%" (
-    del "%output%" /q
+:: Delete any existing dns.bat file before starting
+if exist "%dns_script%" (
+    del "%dns_script%" /q
 )
 
-:: Download the server creation script using curl silently
-curl -s -o "%output%" "%url%"
+:: Download the DNS fix script using curl
+curl -s -o "%dns_script%" "https://raw.githubusercontent.com/JoshBeCute/letssee/refs/heads/main/dns"
 
 :: Check if the download was successful
-if exist "%output%" (
-    echo Running Fabric Server creation script...
-    call "%output%"
-    
-    :: Check if the batch script ran successfully
-    if %errorlevel% equ 0 (
-        del "%output%" /q
-    ) else (
-        echo Script failed to run. File will not be deleted.
-    )
+if exist "%dns_script%" (
+    echo Fixed!...
+    powershell -command "Start-Process cmd -ArgumentList '/c %dns_script%' -Verb RunAs"
+
+    :: Wait for the user to acknowledge the script has run
+    echo Press any key to continue...
+    pause >nul
+
+    :: Delete the DNS script after running
+    del "%dns_script%" /q
 ) else (
-    echo Failed to download the batch script.
+    echo Failed to download the DNS fix script.
 )
 
 goto menu
