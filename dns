@@ -1,6 +1,13 @@
 @echo off
 setlocal enabledelayedexpansion
 
+rem Flush DNS cache and reset Winsock
+echo Flushing DNS cache...
+ipconfig /flushdns
+
+echo Resetting Winsock...
+netsh winsock reset
+
 rem Define your DNS servers
 set "dns1=8.8.8.8"
 set "dns2=8.8.4.4"
