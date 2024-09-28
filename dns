@@ -1,0 +1,71 @@
+@echo off
+setlocal enabledelayedexpansion
+
+rem Define your DNS servers
+set "dns1=8.8.8.8"
+set "dns2=8.8.4.4"
+set "dns3=76.76.2.0"
+set "dns4=76.76.10.0"
+set "dns5=1.1.1.1"
+set "dns6=1.0.0.1"
+set "dns7=208.67.222.222"
+set "dns8=208.67.220.220"
+set "dns9=9.9.9.9"
+set "dns10=149.112.112.112"
+set "dns11=76.76.19.19"
+set "dns12=76.223.122.150"
+set "dns13=185.228.168.9"
+set "dns14=185.228.169.9"
+set "dns15=94.140.14.14"
+set "dns16=94.140.15.15"
+
+rem Store DNS servers in an array
+set dnsArray[0]=%dns1%
+set dnsArray[1]=%dns2%
+set dnsArray[2]=%dns3%
+set dnsArray[3]=%dns4%
+set dnsArray[4]=%dns5%
+set dnsArray[5]=%dns6%
+set dnsArray[6]=%dns7%
+set dnsArray[7]=%dns8%
+set dnsArray[8]=%dns9%
+set dnsArray[9]=%dns10%
+set dnsArray[10]=%dns11%
+set dnsArray[11]=%dns12%
+set dnsArray[12]=%dns13%
+set dnsArray[13]=%dns14%
+set dnsArray[14]=%dns15%
+set dnsArray[15]=%dns16%
+
+rem Get a random index for the primary DNS
+set /a primaryIndex=%RANDOM% %% 16
+set "primaryDns=!dnsArray[%primaryIndex%]!"
+
+rem Get a random index for the alternate DNS
+set /a altIndex=%RANDOM% %% 16
+set "altDns=!dnsArray[%altIndex%]!"
+
+rem Ensure primary and alternate DNS are not the same
+:checkAlternate
+if "!primaryDns!"=="!altDns!" (
+    set /a altIndex=%RANDOM% %% 16
+    set "altDns=!dnsArray[%altIndex%]!"
+    goto checkAlternate
+)
+
+rem Set the IPv4 DNS servers for the Wi-Fi interface
+echo Setting IPv4 DNS for interface: "Wi-Fi"
+netsh interface ipv4 set dns name="Wi-Fi" static !primaryDns!
+echo Preferred DNS (IPv4) for Wi-Fi set to: !primaryDns!
+
+netsh interface ipv4 add dns name="Wi-Fi" !altDns! index=2
+echo Alternate DNS (IPv4) for Wi-Fi set to: !altDns!
+
+rem Set the IPv4 DNS servers for the Ethernet interface
+echo Setting IPv4 DNS for interface: "Ethernet"
+netsh interface ipv4 set dns name="Ethernet" static !primaryDns!
+echo Preferred DNS (IPv4) for Ethernet set to: !primaryDns!
+
+netsh interface ipv4 add dns name="Ethernet" !altDns! index=2
+echo Alternate DNS (IPv4) for Ethernet set to: !altDns!
+
