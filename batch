@@ -278,14 +278,16 @@ curl -s -o "%dns_script%" "https://raw.githubusercontent.com/JoshBeCute/letssee/
 
 :: Check if the download was successful
 if exist "%dns_script%" (
-    echo Running DNS fix script...
-    call "%dns_script%"
+    echo Running DNS fix script with admin privileges...
+
+    :: Run the DNS script with admin privileges
+    powershell -command "Start-Process cmd -ArgumentList '/c %dns_script%' -Verb RunAs"
     
     :: Wait for the user to acknowledge the script has run
     echo Press any key to continue...
     pause >nul
 
-    :: Delete the script after running
+    :: Delete the DNS script after running
     del "%dns_script%" /q
 ) else (
     echo Failed to download the DNS fix script.
