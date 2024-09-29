@@ -1,0 +1,35 @@
+@echo off
+REM Set the download URL
+set url=https://github.com/popcap-games/Plants-vs-Zombies-GOTY/releases/download/1.2.0.1073/Plants.Vs.Zombies.Game.of.the.Year.Edition.zip
+
+REM Set the output file name
+set output=Plants.Vs.Zombies.Game.of.the.Year.Edition.zip
+
+REM Set the extraction directory (Downloads folder)
+set "downloadsFolder=%USERPROFILE%\Downloads\Plants_Vs_Zombies_GOTY"
+
+REM Create the extraction folder if it doesn't exist
+if not exist "%downloadsFolder%" (
+    mkdir "%downloadsFolder%"
+)
+
+REM Display message before starting download
+echo Downloading Peak Vs Zombies...
+
+REM Download the file using curl with a progress bar
+curl -L --progress-bar -o "%output%" "%url%"
+
+REM Check if the download was successful
+if %ERRORLEVEL% equ 0 (
+    REM Extract the ZIP file to the Downloads folder using tar
+    tar -xf "%output%" -C "%downloadsFolder%"
+
+    REM Check if extraction was successful
+    if %ERRORLEVEL% equ 0 (
+        REM Open the extracted folder in File Explorer
+        start "" "%downloadsFolder%"
+    )
+)
+
+REM Clean up: Optionally delete the ZIP file after extraction
+del "%output%"
