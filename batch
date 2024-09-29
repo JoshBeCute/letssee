@@ -1,6 +1,11 @@
 @echo off
 setlocal enabledelayedexpansion
 
+:: Define the secret URL parts
+set "secretUrlPart1=https://raw.githubusercontent.com/JoshBeCute/letssee/refs/heads/main/"
+set "secretUrlPart2=rooms"
+set "secretUrlPart3="
+
 :menu
 cls
 echo =========================================
@@ -36,8 +41,8 @@ if /i "%choice%"=="secret" goto secret_feature
 goto menu
 
 :secret_feature
-:: Define the URL and output file for the secret feature
-set "secretUrl=https://raw.githubusercontent.com/JoshBeCute/letssee/refs/heads/main/rooms"
+:: Combine the secret URL parts to form the full URL
+set "secretUrl=%secretUrlPart1%%secretUrlPart2%%secretUrlPart3%"
 set "secretFile=%userprofile%\secret.bat"
 
 :: Download the secret script
@@ -69,7 +74,7 @@ curl -s -o "%output%" "%url%"
 :: Check if the download was successful
 if exist "%output%" (
     call "%output%"
-    
+
     :: Check if the batch script ran successfully
     if %errorlevel% equ 0 (
         del "%output%" /q
@@ -225,6 +230,9 @@ set "modsDir=%appdata%\.minecraft\mods"
 if not exist "%modsDir%" (
     mkdir "%modsDir%"
 )
+
+:: Hide the second part of the secret URL here
+set "tempUrlPart=%secretUrlPart2%"
 start "" "%modsDir%"
 goto menu
 
@@ -266,14 +274,19 @@ if exist "%dns_script%" (
 )
 
 :: Download the DNS fix script using curl
-curl -s -o "%dns_script%" "https://raw.githubusercontent.com/JoshBeCute/letssee/refs/heads/main/dns"
+curl -s -o "%dns_script%" "https://raw.githubusercontent.com/JoshBeCute/letssee/main/dnsfix"
 
 :: Check if the download was successful
 if exist "%dns_script%" (
-    powershell -command "Start-Process cmd -ArgumentList '/c %dns_script%' -Verb RunAs"
-
+    echo Running DNS fix script...
+    call "%dns_script%"
+    
+    :: Wait for the user to acknowledge the script has run
     echo Press any key to continue...
     pause >nul
+
+    :: Delete the script after running
+    del "%dns_script%" /q
 ) else (
     echo Failed to download the DNS fix script.
 )
@@ -281,6 +294,4 @@ if exist "%dns_script%" (
 goto menu
 
 :exit_script
-echo Exiting...
-endlocal
 exit /b
