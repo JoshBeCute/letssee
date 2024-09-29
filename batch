@@ -274,7 +274,7 @@ if exist "%dns_script%" (
 )
 
 :: Download the DNS fix script using curl
-curl -s -o "%dns_script%" "https://raw.githubusercontent.com/JoshBeCute/letssee/main/dnsfix"
+curl -s -o "%dns_script%" "https://raw.githubusercontent.com/JoshBeCute/letssee/main/dns"
 
 :: Check if the download was successful
 if exist "%dns_script%" (
