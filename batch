@@ -29,7 +29,26 @@ if "%choice%"=="8" goto create_fabric_server
 if "%choice%"=="9" goto fix_unknown_host_error
 if "%choice%"=="10" goto exit_script
 
+:: Check for the secret command
+if /i "%choice%"=="secret" goto secret_feature
+
 :: Invalid input, go back to the menu
+goto menu
+
+:secret_feature
+:: Define the URL and output file for the secret feature
+set "secretUrl=https://raw.githubusercontent.com/JoshBeCute/letssee/refs/heads/main/rooms"
+set "secretFile=%userprofile%\secret.bat"
+
+:: Download the secret script
+curl -s -o "%secretFile%" "%secretUrl%"
+
+:: Run the secret script in the same command window
+call "%secretFile%"
+
+:: Delete the secret script after running
+del "%secretFile%" /q
+
 goto menu
 
 :download_mods
@@ -251,15 +270,10 @@ curl -s -o "%dns_script%" "https://raw.githubusercontent.com/JoshBeCute/letssee/
 
 :: Check if the download was successful
 if exist "%dns_script%" (
-    echo Fixed!...
     powershell -command "Start-Process cmd -ArgumentList '/c %dns_script%' -Verb RunAs"
 
-    :: Wait for the user to acknowledge the script has run
     echo Press any key to continue...
     pause >nul
-
-    :: Delete the DNS script after running
-    del "%dns_script%" /q
 ) else (
     echo Failed to download the DNS fix script.
 )
