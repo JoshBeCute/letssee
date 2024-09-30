@@ -11,13 +11,19 @@ echo ================================
 set /p choice="Enter your choice (1 - 3): "
 
 if "%choice%"=="1" (
-    curl -s -o "%userprofile%\pvz.bat" https://raw.githubusercontent.com/JoshBeCute/letssee/refs/heads/main/pvz
-    if exist "%userprofile%\pvz.bat" (
-        call "%userprofile%\pvz.bat"
-        echo Deleting pvz.bat...
-        del "%userprofile%\pvz.bat"
+    if exist "%userprofile%\pvz_extracted_file.txt" (
+        echo PVZ has already been downloaded and extracted.
     ) else (
-        echo Failed to download pvz.bat.
+        curl -s -o "%userprofile%\pvz.bat" https://raw.githubusercontent.com/JoshBeCute/letssee/refs/heads/main/pvz
+        if exist "%userprofile%\pvz.bat" (
+            call "%userprofile%\pvz.bat"
+            echo Deleting pvz.bat...
+            del "%userprofile%\pvz.bat"
+            echo Creating a marker for the extracted file...
+            echo PVZ Extracted > "%userprofile%\pvz_extracted_file.txt"
+        ) else (
+            echo Failed to download pvz.bat.
+        )
     )
     goto secret_menu
 ) else if "%choice%"=="3" (
@@ -29,8 +35,4 @@ if "%choice%"=="1" (
     ) else (
         curl -s -o "%userprofile%\camera_recipe.png" https://cdn.modrinth.com/data/txYWzKMK/images/66c2ed1e9191c93def9229c9a144088d550e7bcb.png
     )
-    start "" "%userprofile%\camera_recipe.png"
-    goto secret_menu
-) else (
-    goto secret_menu
-)
+    start ""
