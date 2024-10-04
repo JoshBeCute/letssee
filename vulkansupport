@@ -4,74 +4,86 @@ setlocal enabledelayedexpansion
 :: Define the Minecraft mods directory
 set "modsDir=%appdata%\.minecraft\mods"
 
-:: Ensure the mods directory exists
-if not exist "%modsDir%" (
-    mkdir "%modsDir%"
+:: URL of the files containing the list of mod download links
+set "listUrl=https://raw.githubusercontent.com/JoshBeCute/letssee/refs/heads/main/vulkansupportmods"
+set "additionalListUrl=https://raw.githubusercontent.com/JoshBeCute/letssee/refs/heads/main/modsplayer"
+
+:: Download the list of URLs from the remote files
+set "listFile=%temp%\mods_list.txt"
+curl -s -o "%listFile%" "%listUrl%"
+curl -s -o "%temp%\additional_list.txt" "%additionalListUrl%"
+
+:: Check if the list files were downloaded correctly
+if not exist "%listFile%" (
+    echo Failed to download the main mod list.
+    exit /b 1
 )
 
-:: List of URLs to download from
-set "listUrl1=https://raw.githubusercontent.com/JoshBeCute/letssee/main/modsplayer"
-set "listUrl2=https://raw.githubusercontent.com/JoshBeCute/letssee/refs/heads/main/vulkansupportmods"
+if not exist "%temp%\additional_list.txt" (
+    echo Failed to download the additional mod list.
+    exit /b 1
+)
 
-:: Function to download and process mods
-for %%L in (%listUrl1% %listUrl2%) do (
-    set "listFile=%temp%\mods_list_%%~nL.txt"
-    curl -s -o "%listFile%" "%%L"
+:: Combine the two lists into one
+type "%temp%\additional_list.txt" >> "%listFile%"
 
-    :: Check if the list file was downloaded correctly
-    if not exist "%listFile%" (
-        exit /b 1
-    )
+:: Read each line from the list file and download the corresponding file
+for /f "usebackq tokens=*" %%A in ("%listFile%") do (
+    set "url=%%A"
 
-    :: Read each line from the list file and download the corresponding file
-    for /f "usebackq tokens=*" %%A in ("%listFile%") do (
-        set "url=%%A"
+    :: Skip empty lines
+    if not "!url!"=="" (
+        :: Extract filename from URL
+        for /f "tokens=*" %%B in ("!url!") do set "filename=%%~nxB"
 
-        :: Skip empty lines
-        if not "!url!"=="" (
-            :: Extract filename from URL
-            for /f "tokens=*" %%B in ("!url!") do set "filename=%%~nxB"
-
-            :: Sanitize the filename
-            set "sanitized="
-            for /l %%i in (0,1,31) do (
-                set "char=!filename:~%%i,1!"
-                if "!char!" neq "" (
-                    if "!char!" geq "a" if "!char!" leq "z" (
-                        set "sanitized=!sanitized!!char!"
-                    ) else if "!char!" geq "0" if "!char!" leq "9" (
-                        set "sanitized=!sanitized!!char!"
-                    )
+        :: Sanitize the filename
+        set "sanitized="
+        for /l %%i in (0,1,31) do (
+            set "char=!filename:~%%i,1!"
+            if "!char!" neq "" (
+                if "!char!" geq "a" if "!char!" leq "z" (
+                    set "sanitized=!sanitized!!char!"
+                ) else if "!char!" geq "0" if "!char!" leq "9" (
+                    set "sanitized=!sanitized!!char!"
                 )
             )
+        )
 
-            :: Ensure filename is not empty
-            if "!sanitized!"=="" (
+        :: Ensure filename is not empty
+        if "!sanitized!"=="" (
+            echo Error: Filename sanitization resulted in an empty name for URL: !url!
+            exit /b 1
+        )
+
+        :: Append .jar extension for saving
+        set "finalFilename=!sanitized!.jar"
+
+        :: Check if the file already exists
+        if not exist "%modsDir%\!finalFilename!" (
+            echo Downloading !finalFilename!
+            curl -s -o "%modsDir%\!finalFilename!" "!url!"
+            if errorlevel 1 (
+                echo Error downloading !finalFilename!.
                 exit /b 1
             )
-
-            :: Append .jar extension for saving
-            set "finalFilename=!sanitized!.jar"
-
-            :: Check if the file already exists
-            if not exist "%modsDir%\!finalFilename!" (
-                curl -s -o "%modsDir%\!finalFilename!" "!url!"
-            )
+        ) else (
+            echo !finalFilename! already exists.
         )
     )
-
-    :: Clean up
-    del "%listFile%"
 )
 
-:: List of files to delete after downloads
-set "filesToDelete=ImmediatelyFastFabricB enhancedblockentitiesB sodiumfabricbetaBmc fixantighostforkcrashj Palladiumx guardvillagersjar NetherChestedvFab ImprovedAnvilsjar gravesBjar ViaFabricPlusjar DeathFindervFabri advancednetheritefabric Terralithvjar TerraBlenderfabric"
+:: List of files to delete after downloading
+set "filesToDelete=ImmediatelyFastFabricB enhancedblockentitiesB sodiumfabricbetaB fixantighostforkcrashj Palladiumx guardvillagersjar NetherChestedvFab ImprovedAnvilsjar gravesBjar ViaFabricPlusjar DeathFindervFabri advancednetheritefabric Terralithvjar TerraBlenderfabric"
 
-:: Delete specified files
+:: Check for and delete specified files
 for %%F in (%filesToDelete%) do (
     if exist "%modsDir%\%%F.jar" (
         del "%modsDir%\%%F.jar"
     )
 )
 
-endlocal
+:: Clean up
+del "%listFile%"
+del "%temp%\additional_list.txt"
+
+pause
