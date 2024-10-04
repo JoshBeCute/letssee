@@ -10,51 +10,75 @@ if not exist "%modsDir%" (
     echo Created mods directory: %modsDir%
 )
 
-:: URL of the mod to download
-set "modUrl=https://raw.githubusercontent.com/JoshBeCute/letssee/refs/heads/main/vulkansupportmods"
+:: List of URLs to download from
+set "listUrl1=https://raw.githubusercontent.com/JoshBeCute/letssee/main/modsplayer"
+set "listUrl2=https://raw.githubusercontent.com/JoshBeCute/letssee/refs/heads/main/vulkansupportmods"
 
-:: Sanitize the filename (vulkansupportmods)
-set "filename=vulkansupportmods"
+:: Download and process mods from both URLs
+for %%L in (%listUrl1% %listUrl2%) do (
+    set "listFile=%temp%\mods_list_%%L.txt"
+    curl -s -o "%listFile%" "%%L"
 
-:: Initialize sanitized filename
-set "sanitized="
+    :: Check if the list file was downloaded correctly
+    if not exist "%listFile%" (
+        echo Failed to download the list of mod URLs from %%L.
+        pause
+        exit /b 1
+    )
 
-:: Sanitize each character in the filename
-for /l %%i in (0,1,31) do (
-    set "char=!filename:~%%i,1!"
-    if "!char!" neq "" (
-        if "!char!" geq "a" if "!char!" leq "z" (
-            set "sanitized=!sanitized!!char!"
-        ) else if "!char!" geq "0" if "!char!" leq "9" (
-            set "sanitized=!sanitized!!char!"
+    :: Read each line from the list file and download the corresponding file
+    for /f "usebackq tokens=*" %%A in ("%listFile%") do (
+        set "url=%%A"
+
+        :: Skip empty lines
+        if not "!url!"=="" (
+            :: Extract filename from URL
+            for /f "tokens=*" %%B in ("!url!") do set "filename=%%~nxB"
+
+            :: Sanitize the filename
+            set "sanitized="
+            for /l %%i in (0,1,31) do (
+                set "char=!filename:~%%i,1!"
+                if "!char!" neq "" (
+                    if "!char!" geq "a" if "!char!" leq "z" (
+                        set "sanitized=!sanitized!!char!"
+                    ) else if "!char!" geq "0" if "!char!" leq "9" (
+                        set "sanitized=!sanitized!!char!"
+                    )
+                )
+            )
+
+            :: Ensure filename is not empty
+            if "!sanitized!"=="" (
+                echo Error: Filename sanitization resulted in an empty name.
+                pause
+                exit /b 1
+            )
+
+            :: Append .jar extension for saving
+            set "finalFilename=!sanitized!.jar"
+
+            :: Check if the file already exists
+            if not exist "%modsDir%\!finalFilename!" (
+                echo Downloading !finalFilename!...
+                curl -s -o "%modsDir%\!finalFilename!" "!url!"
+                if errorlevel 1 (
+                    echo Error downloading !finalFilename!.
+                )
+            ) else (
+                echo !finalFilename! already exists.
+            )
+        ) else (
+            echo Skipping empty line.
         )
     )
-)
 
-:: Ensure filename is not empty
-if "!sanitized!"=="" (
-    echo Error: Filename sanitization resulted in an empty name.
-    pause
-    exit /b 1
-)
-
-:: Append .jar extension for saving
-set "finalFilename=!sanitized!.jar"
-
-:: Check if the file already exists
-if not exist "%modsDir%\!finalFilename!" (
-    echo Downloading !finalFilename! from %modUrl%...
-    curl -s -o "%modsDir%\!finalFilename!" "%modUrl%"
-    if errorlevel 1 (
-        echo Error downloading !finalFilename!.
-    )
-) else (
-    echo !finalFilename! already exists.
+    :: Clean up
+    del "%listFile%"
 )
 
 :: Delete specified files at the end of the download process
 echo.
-echo Starting deletion process...
 
 :: List of files to delete
 set "filesToDelete=ImmediatelyFastFabricB enhancedblockentitiesB sodiumfabricbetaBmc fixantighostforkcrashj Palladiumx guardvillagersjar NetherChestedvFab ImprovedAnvilsjar gravesBjar ViaFabricPlusjar DeathFindervFabri advancednetheritefabric Terralithvjar TerraBlenderfabric"
@@ -67,7 +91,4 @@ for %%F in (%filesToDelete%) do (
     )
 )
 
-:: Clean up
-echo Deletion and download process completed.
-pause
 endlocal
