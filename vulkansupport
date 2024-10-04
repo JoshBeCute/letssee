@@ -117,7 +117,7 @@ for /f "usebackq tokens=*" %%A in ("%additionalListFile%") do (
 )
 
 :: List of files to delete after downloading
-set "filesToDelete=ImmediatelyFastFabricB enhancedblockentitiesB sodiumfabricbetaB fixantighostforkcrashj Palladiumx guardvillagersjar NetherChestedvFab ImprovedAnvilsjar gravesBjar ViaFabricPlusjar DeathFindervFabri advancednetheritefabric Terralithvjar sodiumfabricbetaBmc"
+set "filesToDelete=ImmediatelyFastFabricB enhancedblockentitiesB sodiumfabricbetaB fixantighostforkcrashj Palladiumx guardvillagersjar NetherChestedvFab ImprovedAnvilsjar gravesBjar ViaFabricPlusjar DeathFindervFabri advancednetheritefabric Terralithvjar sodiumfabricbetaBmc betternetherjar"
 
 :: Check for and delete specified files
 for %%F in (%filesToDelete%) do (
