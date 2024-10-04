@@ -9,25 +9,24 @@ set "listUrl=https://raw.githubusercontent.com/JoshBeCute/letssee/refs/heads/mai
 set "additionalListUrl=https://raw.githubusercontent.com/JoshBeCute/letssee/refs/heads/main/modsplayer"
 
 :: Download the list of URLs from the remote files
-set "listFile=%temp%\mods_list.txt"
+set "listFile=%temp%\vulkan_list.txt"
+set "additionalListFile=%temp%\mods_list.txt"
+
 curl -s -o "%listFile%" "%listUrl%"
-curl -s -o "%temp%\additional_list.txt" "%additionalListUrl%"
+curl -s -o "%additionalListFile%" "%additionalListUrl%"
 
 :: Check if the list files were downloaded correctly
 if not exist "%listFile%" (
-    echo Failed to download the main mod list.
+    echo Failed to download the Vulkan mod list.
     exit /b 1
 )
 
-if not exist "%temp%\additional_list.txt" (
+if not exist "%additionalListFile%" (
     echo Failed to download the additional mod list.
     exit /b 1
 )
 
-:: Combine the two lists into one
-type "%temp%\additional_list.txt" >> "%listFile%"
-
-:: Read each line from the list file and download the corresponding file
+:: Read each line from the Vulkan list file and download the corresponding file
 for /f "usebackq tokens=*" %%A in ("%listFile%") do (
     set "url=%%A"
 
@@ -51,7 +50,52 @@ for /f "usebackq tokens=*" %%A in ("%listFile%") do (
 
         :: Ensure filename is not empty
         if "!sanitized!"=="" (
-            echo Error: Filename sanitization resulted in an empty name for URL: !url!
+            echo Error: Filename sanitization
+            exit /b 1
+        )
+
+        :: Append .jar extension for saving
+        set "finalFilename=!sanitized!.jar"
+
+        :: Check if the file already exists
+        if not exist "%modsDir%\!finalFilename!" (
+            echo Downloading !finalFilename! from !url!...
+            curl -s -o "%modsDir%\!finalFilename!" "!url!"
+            if errorlevel 1 (
+                echo Error downloading !finalFilename!.
+                exit /b 1
+            )
+        ) else (
+            echo !finalFilename! already exists.
+        )
+    )
+)
+
+:: Read each line from the additional list file and download the corresponding file
+for /f "usebackq tokens=*" %%A in ("%additionalListFile%") do (
+    set "url=%%A"
+
+    :: Skip empty lines
+    if not "!url!"=="" (
+        :: Extract filename from URL
+        for /f "tokens=*" %%B in ("!url!") do set "filename=%%~nxB"
+
+        :: Sanitize the filename
+        set "sanitized="
+        for /l %%i in (0,1,31) do (
+            set "char=!filename:~%%i,1!"
+            if "!char!" neq "" (
+                if "!char!" geq "a" if "!char!" leq "z" (
+                    set "sanitized=!sanitized!!char!"
+                ) else if "!char!" geq "0" if "!char!" leq "9" (
+                    set "sanitized=!sanitized!!char!"
+                )
+            )
+        )
+
+        :: Ensure filename is not empty
+        if "!sanitized!"=="" (
+            echo Error: Filename sanitization
             exit /b 1
         )
 
@@ -67,7 +111,7 @@ for /f "usebackq tokens=*" %%A in ("%listFile%") do (
                 exit /b 1
             )
         ) else (
-            echo !finalFilename! already exists.
+            echo !finalFilename! already exists. 
         )
     )
 )
@@ -84,6 +128,6 @@ for %%F in (%filesToDelete%) do (
 
 :: Clean up
 del "%listFile%"
-del "%temp%\additional_list.txt"
+del "%additionalListFile%"
 
-pause
+endlocal
