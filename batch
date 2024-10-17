@@ -9,17 +9,18 @@ set "secretUrlPart3="
 :menu
 cls
 echo =========================================
-echo Select an option:
-echo 1. Download Yaoland Season 3 Requirements (Mods + Fabric)
-echo 2. Download OpenJDK 22 (if you don't have the latest Java version)
-echo 3. Download SKlauncher
-echo 4. Download S3 Requirements with VulkanMod (not recommended)
-echo 5. Delete all mods in the mods folder
-echo 6. Download Mods using provided links
-echo 7. Open Minecraft Mods Folder
-echo 8. Create Fabric Server
-echo 9. Fix Unknown Host Error
-echo 10. Exit
+echo                   TOOLS   
+echo =========================================
+echo [1]  Download S3 Mods
+echo [2]  Download Latest Java
+echo [3]  Download SKlauncher
+echo [4]  Download S3 Mods with VulkanMod
+echo [5]  Delete all mods in the mods folder
+echo [6]  Download Mods Using Provided Link(s)
+echo [7]  Open Minecraft Mods Folder
+echo [8]  Create Fabric Server
+echo [9]  Fix Unknown Host Error
+echo [10] Exit
 echo =========================================
 set /p choice="Enter your choice (1-10): "
 
@@ -39,6 +40,8 @@ if /i "%choice%"=="Mr_blob_fart" goto secret_feature
 if /i "%choice%"=="WellHiddenJosh_" goto secret_feature
 
 :: Invalid input, go back to the menu
+echo Invalid choice, please select a number between 1 and 10.
+timeout /t 2 >nul
 goto menu
 
 :secret_feature
@@ -110,23 +113,21 @@ if %errorlevel% equ 0 (
     echo Fabric installer failed to run.
 )
 
-goto menu
-
 :download_openjdk
-echo Downloading OpenJDK 22...
-set "output=%userprofile%\Downloads\jdk-22_windows-x64_bin.exe"
-if not exist "%output%" curl -s -o "%output%" "https://download.oracle.com/java/22/latest/jdk-22_windows-x64_bin.exe"
-echo Running OpenJDK 22 installer...
-start "" "%output%"
+:: Check if winget is installed
+where winget >nul 2>&1
+if %errorlevel% neq 0 (
+    powershell -Command "Start-Process PowerShell -ArgumentList '-NoProfile -ExecutionPolicy Bypass -Command Install-Script -Name winget-install -RequiredVersion 2.1.0' -Verb RunAs"
+    echo Please wait for winget to install...
+    timeout /t 10 >nul
+    goto download_openjdk  :: Rerun the section to check if winget is now available
+)
+
+:: Use winget to install Eclipse Adoptium Temurin 23 JRE
+winget install EclipseAdoptium.Temurin.23.JRE -e --silent
+
 goto menu
 
-:download_sklauncher
-echo Downloading SKlauncher...
-set "output=%userprofile%\Downloads\SKlauncher-3.2.exe"
-if not exist "%output%" curl -s -o "%output%" "https://skmedix.pl/binaries/skl/3.2.10/x64/SKlauncher-3.2.exe"
-echo Running SKlauncher installer...
-start "" "%output%"
-goto menu
 
 :download_vulkanmod
 echo Checking for VulkanMod requirements...
