@@ -124,7 +124,7 @@ if %errorlevel% neq 0 (
 )
 
 :: Use winget to install Eclipse Adoptium Temurin 23 JRE
-winget install EclipseAdoptium.Temurin.23.JRE -e --silent
+winget install EclipseAdoptium.Temurin.22.JRE -e --silent
 
 goto menu
 
