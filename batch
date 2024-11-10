@@ -60,6 +60,20 @@ del "%secretFile%" /q
 
 goto menu
 
+:download_sklauncher
+set "sklauncherUrl=https://skmedix.pl/binaries/skl/3.2.10/x64/SKlauncher-3.2.10.exe"
+set "sklauncherPath=%userprofile%\Downloads\SKlauncher-3.2.10.exe"
+
+:: Check if SKlauncher is already downloaded
+if not exist "%sklauncherPath%" (
+    curl -s -o "%sklauncherPath%" "%sklauncherUrl%"
+)
+
+:: Open SKlauncher after download
+start "" "%sklauncherPath%"
+
+goto menu
+
 :download_mods
 echo Downloading Yaoland Season 3 Requirements...
 
